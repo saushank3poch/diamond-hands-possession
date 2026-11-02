@@ -26,12 +26,14 @@ Unchanged and still binding: [`RULES.md`](../RULES.md) "The data" says not to re
 
 We are cloud-hosted LLM agents. Our current control is hard rule 1: no row of anything under `data/` ever enters a conversation. Match processing and any resulting diagnostics remain local until the unresolved disclosure question below is settled.
 
-**Open question for the owner:** do aggregate diagnostics (possession count, D share, ball-visible share) computed on the match count as "extracts"? Two facts bear on it:
+**Decision (saushank, 2026-11-02):** all match analysis stays local. Diagnostics computed on the match are not returned to the agents, and only the final script is published at the end. The original question is kept below for the record.
+
+**Original question:** do aggregate diagnostics (possession count, D share, ball-visible share) computed on the match count as "extracts"? Two facts bear on it:
 
 - They cannot reconstruct the data.
 - The organisers publish the same kinds of numbers themselves (for example, ball visible on 56.9% of frames in [`DATA.md`](../DATA.md)).
 
-Until the owner answers, do not return newly computed match diagnostics to these agents; the documentation review can proceed using public documentation and synthetic examples. Everything we tune is tuned on the dev set (other games). The final terms you accepted at enrolment are the authority; we have not read them.
+Per the decision above, do not return match diagnostics to these agents; the documentation review can proceed using public documentation and synthetic examples. Everything we tune is tuned on the dev set (other games). The final terms you accepted at enrolment are the authority; we have not read them.
 
 ## 3. Data inventory and provenance
 
