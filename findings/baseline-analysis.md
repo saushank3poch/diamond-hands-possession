@@ -1,6 +1,6 @@
 # Baseline possession estimation: behaviour and limitations
 
-Reviewed: 2026-11-02. Re-verified line by line against `starter/baseline.py` at upstream commit `f8f2629` (latest on `origin/main` as of 2026-11-02).
+Reviewed: 2026-11-02. Re-verified line by line against `starter/baseline.py` at upstream commit `f8f2629` (verified against official upstream main as of 2026-11-02).
 
 Source: [`starter/baseline.py`](../starter/baseline.py), with pitch dimensions from [`games.py`](../games.py).
 

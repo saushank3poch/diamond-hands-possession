@@ -9,7 +9,7 @@ Every claim reports, on the degraded dev set with official `--bootstrap 1000` in
 - D share
 - boundary latency
 
-Differences with overlapping intervals are not wins. The ~0.04 noise band is the organisers' full-match reference, not a dev-set cutoff. The public 5-minute GT is never a metric here.
+Overlapping intervals mean no win (saushank's standing rule). Non-overlap is necessary but not sufficient, because individual intervals are not a paired significance test. Claim improvements only with a suitable paired comparison on held-out other matches. The ~0.04 noise band is the organisers' full-match reference, not a dev-set cutoff. The public 5-minute GT is never a metric here.
 
 Template:
 

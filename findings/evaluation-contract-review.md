@@ -97,7 +97,8 @@ it is not evidence of a broken scorer or a failed format check.
   the numeric sentinel must not be presented as a measured share error.
 - Bootstrap macroF1 resamples GT segments. Bootstrap spellF1 resamples matched
   GT-possession flags with prediction count fixed; it does not rematch each
-  sample. Neither is a frame-independent interval or permission to tune on
+  sample. Both default intervals use the 5th and 95th percentiles (90% coverage).
+  Neither is a frame-independent interval or permission to tune on
   the public slice. Published noise bands are full-match reference estimates,
   not universal significance cutoffs.
 
