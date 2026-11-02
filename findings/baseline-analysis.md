@@ -57,7 +57,7 @@ Because only H and A vote, smoothed `D` survives only where a ball gap is longer
 
 ### 4. Write the submission
 
-`write_submission()` writes a `frame,label` CSV with one row per tactical-video frame (199,319 rows), labelled H/A/D everywhere, including ungraded frames. It never writes `X`. How the scorer treats non-`X` labels on ungraded frames is covered in Codex's `evaluation-contract-review.md`, not here. `build()` computes the nearest-player assignments once, and the command-line entry point applies each smoothing variant to those same assignments.
+`write_submission()` writes a `frame,label` CSV with one row per tactical-video frame (199,319 rows), labelled H/A/D everywhere, including ungraded frames. It never writes `X`. How the scorer treats non-`X` labels on ungraded frames is covered in [`evaluation-contract-review.md`](evaluation-contract-review.md): non-`X` labels on GT-`X` frames are excluded from scoring. `build()` computes the nearest-player assignments once, and the command-line entry point applies each smoothing variant to those same assignments.
 
 ## Verified synthetic examples
 
