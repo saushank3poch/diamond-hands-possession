@@ -53,7 +53,7 @@ The suffix is the window's half-width in frames. The video runs at 25 FPS. Smoot
 
 The window runs over the whole recording. It knows nothing about the graded ranges, half-time, or the kick-offs. Votes from ungraded frames, before, between and after the graded halves, can therefore leak into the first and last 2 seconds of each graded half for `smooth50`.
 
-Because only H and A vote, smoothed `D` survives only where a ball gap is longer than the full window (more than 101 frames, about 4 s, for `smooth50`). Short stoppages that the tracking does see the ball through are never `D` at all. In practice, the published floor has almost no dead-ball detection.
+Because only H and A vote, an interior frame is smoothed to `D` only when every frame in its full window is unanswered: 101 consecutive unanswered frames (about 4 s) for `smooth50`. A frame is unanswered when the ball is missing, when no player is usable, or when its line is malformed. Near the recording edges the window is truncated, so fewer unanswered frames are needed there. Stoppages during which the tracking still sees the ball and a player are never `D`. The baseline has no explicit dead-ball detector; we have not measured how often its `D` coincides with real stoppages.
 
 ### 4. Write the submission
 
