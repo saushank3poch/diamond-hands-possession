@@ -1,68 +1,85 @@
-# FCB-5: dev-label eligibility audit (DFL / IDSSE)
+# FCB-5: dev-label eligibility audit (DFL / IDSSE), revision 2
 
-Run: 2026-11-03. Split: `configs/split.yaml`. **Dev matches only**: J03WN1, J03WOH, J03WPY, J03WQQ, J03WR9. The holdout matches (J03WMX, J03WOY) were not opened.
-Reproduce with `PYTHONPATH=src .venv/bin/python scripts/audit_dfl_labels.py`.
-Raw aggregates: `dev-labels-audit.json` and `dev-labels-transform-sensitivity.json`.
+Run: 2026-11-03. Code commit: see `git_commit` in `dev-labels-audit.json`; the run is from a clean tree.
+
+- **Split:** `configs/split.yaml`. **Dev matches only**: J03WN1, J03WOH, J03WPY, J03WQQ, J03WR9. The holdout matches (J03WMX, J03WOY) were not opened.
+- **Reproduce:** `PYTHONPATH=src .venv/bin/python scripts/audit_dfl_labels.py`. This one command writes every number below to `dev-labels-audit.json`, including the proxy sensitivity, with split hash and git provenance.
+
+Revision 1 claimed DFL possession is "last-touch" and accepted a 2 s filter as the reference. Codex's review showed that conclusion was not supported, and it is **withdrawn**.
 
 ## Verdict
 
-| Source | Verdict |
+| Item | Verdict |
 |---|---|
-| DFL `BallStatus` → D | **Accept as-is** |
-| DFL `BallPossession` → H/A | **Accept with transform**: confirm-control, τ = 2 s, prespecified (below) |
-| Metrica, SkillCorner | Not audited here (FCB-6). Metrica Game 1 events were already inspected in the semantics survey, so that game is not untouched |
+| DFL `BallStatus` → D | **Accept.** Internally consistent with DFL restart events (§3) |
+| DFL `BallPossession` → H/A | **Accept raw flags as the primary reference**, with a measured caveat (§4) |
+| 2 s confirm-control filter | **Experimental proxy only.** Never the sole basis of a model decision; reported for transparency |
+| DFL ↔ Metrica convention | **Unmeasured.** Neither dead-ball timing nor the possession definition can be compared without Metrica-side truth |
+| Metrica, SkillCorner | Not audited here (FCB-6). Metrica Game 1 events were already inspected, so that game is not untouched |
 
-## Evidence (ranges over the 5 dev matches)
+The primary reference is `possession.evaluation.labels.reference_labels`: the raw flags, with the unknown mask applied as X.
 
-### 1. Integrity and value sets
-- `BallStatus` ∈ {0, 1} and `BallPossession` ∈ {1, 2} on every ball frame.
-- Unknown share is 0.0 in all 5 matches.
-- Frames per match: 137k–147k, in 2 periods.
+## Evidence (5 dev matches)
 
-### 2. Home/away mapping
-- Adapter home slots equal match-info `HomeTeamId` players in 5/5 matches.
-- Where a player is within 1.5 m of the ball in live play, the flagged team matches that player's team on 87–92% of frames.
-- So `BallPossession` 1 = home holds. The remainder is consistent with flags lagging or leading a touch.
+### 1. Integrity
+- Value sets: `BallStatus` ∈ {0, 1} and `BallPossession` ∈ {1, 2}. Unknown share 0.0.
+- 137k–147k frames per match, in 2 periods.
 
-### 3. Dead ball
-- **Restart timing:** 88–95% of restart events (human DFL events on other games: kick-off, throw-in, free kick, goal kick, corner, penalty, referee ball) have a dead→alive flag transition within 3 s.
-- **Counts:** restart events and dead→alive transitions agree within ±2 per match.
-- **Same-team restarts:** 24–43% of dead intervals have the same team on both sides. D therefore splits same-team possessions, as the challenge requires.
-- **D share:** 41–52% of period frames; median dead interval is 19–24 s.
-- **Owner during dead frames:** DFL keeps an owner value here. We map every dead frame to D regardless.
+### 2. Home/away
+- The flag value 1 is the match-info `HomeTeamId` side in 5/5 matches.
+- Where a player is within 1.5 m of the ball in live play, the flag names that player's team on 87–92% of frames.
 
-### 4. Possession is last-touch, not controlled
-- At live H↔A switches, the new team has a player within 1.5 m on 93–99% of switches (median 0.6 m).
-- 16–26% of switches flip back within 2 s.
-- 25–34% of possessions last under 2 s.
-- Raw flags give 19–26 possessions per 5 min, with a median of 3–5 s.
+### 3. Dead ball: DFL internal consistency only
+Restart events (kick-off, throw-in, free kick, goal kick, corner, penalty, referee ball) were paired one-to-one with dead→alive transitions, greedy by |Δt| within 5 s.
 
-CHALLENGE.md excludes touches without control, deflections and won aerials, so raw `BallPossession` over-segments relative to the target convention.
+| | per match |
+|---|---|
+| matched | 89–100 |
+| unmatched events | 2–4 |
+| unmatched transitions | 0–5 |
+| median signed latency (transition − event) | −1.25 to +1.98 s |
 
-## Transform (evaluator-only; `src/possession/evaluation/labels.py`)
+The latency sign varies by match. That is consistent with the paper's note that manual event timing is offset (−0.37 ± 1.82 s), so this is **not a measure of flag timing error**. It is also **not a DFL–Metrica offset**.
 
-`confirm_control`, applied per period:
+Same-team restarts: 24–43% of dead intervals have the same team on both sides. D share is 41–52% of period frames.
 
-- A spell for the other team that directly follows a team spell (no D between) is kept only if it lasts at least **τ = 2 s**. Otherwise it is relabelled as the previous owner.
-- The first spell after a D or a period start is a restart and is always kept.
-- A confirmed switch keeps its original start frame, so control is back-dated to the first touch.
-- Unknown (X) frames break the chain. Synthetic tests are in `tests/test_reference_labels.py`.
+### 4. Possession: does the raw flag follow control?
 
-**τ was fixed from CHALLENGE.md's "keeps the ball for a few seconds" proxy** and written into the code before the sensitivity run. It is not selected by comparing against the public 5-minute GT or any target statistic. Disclosure: the published DATA.md summary of the public window (17 possessions, mean 14.2 s) was known to the authors. It was not used as a target, and no τ was chosen to match it.
+**Source definition:** the IDSSE paper states that "the ball possession is defined by the player in control of the ball" (Bassek et al. 2025, Position data).
 
-Sensitivity is for robustness reporting only, never for selection:
+**Independent check:** DFL's human event stream, which is produced separately from the tracking flags.
+- At each live H↔A switch, I looked for events in a fixed window [−2 s, +1 s] around the switch start, after aligning each match's event clock by its restart median latency.
+- **Control** = the new team has a `Play`, `ShotAtGoal` or `BallClaiming` event, or wins a `TacklingGame` with `PossessionChange="true"`.
+- **Duel without change** = a `TacklingGame` with `PossessionChange="false"`.
 
-| τ | possessions / 5 min | median spell (s) | share < 2 s |
-|---|---|---|---|
-| raw | 18.9–26.5 | 3.1–4.7 | 25–34% |
-| 1 s | 16.3–21.0 | 4.4–5.6 | 15–19% |
-| **2 s** | **13.6–16.7** | **5.8–7.8** | **2–6%** |
-| 3 s | 11.3–14.1 | 6.9–10.6 | 0.5–6% |
+Pooled over the 5 dev matches:
 
-FCB-9 reports dev results under τ = 2 s as primary, and τ = 1 s and 3 s as a robustness band. A component that wins only under one τ is not a win.
+| switch type | n | control by new team | duel without possession change | no relevant event |
+|---|---|---|---|---|
+| held ≥ 2 s | 1081 | 29.5% | 15.2% | 55.3% |
+| short, flips back < 2 s | 329 | 23.7% | 27.7% | 48.6% |
+
+**Interpretation:**
+- Short flip-back switches coincide with a no-change duel more often than held switches: an excess of 12.5 points, about 41 switches, or ≈3% of all 1410 live switches.
+- Their control-event rate is only modestly lower.
+- So most short spells are not distinguishable from brief controlled possession by this evidence, and a blanket duration filter would also erase legitimate short control. That is why the filter is not the reference.
+
+**Caveat:** about 50% of switches have no relevant event within ±2 s. Manual event timing jitter is comparable to short spell lengths, so this check bounds the problem rather than resolving it. **Estimated raw-flag disagreement with the challenge's "no change on a touch or duel" rule: on the order of 3% of live switches. Unverified against Metrica.**
+
+## Experimental proxy (not a reference)
+
+`confirm_control(τ)`: a live switch counts only if the new team holds the flag for at least τ. It is applied after the unknown mask, which stays X and breaks state (regression tests in `tests/test_reference_labels.py`).
+
+Possessions per 5 min (raw: 18.9–26.5):
+
+| τ | possessions / 5 min |
+|---|---|
+| 1 s | 16.3–21.0 |
+| 2 s | 13.6–16.7 |
+| 3 s | 11.3–14.1 |
+
+FCB-9 may report proxy scores alongside the primary, but selection uses the primary reference. Matching a confirmation-window predictor to a confirmation-window reference would reward the imposed rule.
 
 ## Not material / deferred
-
-- **DFL y-axis sign vs ATD's flipped y:** possession features use distances, the pitch bounds and the per-period attack direction, all of which are invariant to a y mirror. Not material.
-- **Pass-based control proxy** ("more than two consecutive passes"): not used, because the transform is duration-only. Pass events could refine it later, but only with owner approval of a protocol change.
-- **Remaining risk:** DFL dead-ball timing is DFL's operator/automatic convention, not Metrica's corrected-tracking convention. Boundary latencies measured on DFL carry that offset uncertainty, of the order of the 3 s restart window above.
+- **DFL y-axis sign vs ATD:** not material. Possession features use distances, pitch bounds and the per-period attack direction, all invariant to a y mirror.
+- **`BallPossessionPhase`:** event phase counts (896–1120 per match) use a different granularity from flag possessions (370–500). Recorded but not interpreted.
