@@ -1,22 +1,23 @@
-"""Turn DFL reference flags into challenge-style H/A/D labels (evaluator only).
+"""DFL reference flags to H/A/D labels (evaluator only).
 
-DFL `BallPossession` follows the last touch (FCB-5 audit): the new team is within
-1.5 m at 93-99% of live switches, and 16-26% of switches flip back within 2 s.
-The challenge counts only *controlled* possession: touches, deflections and won
-aerials without control do not change possession (CHALLENGE.md). The transform
-below confirms a live change of team only when the new team holds the flag for at
-least `confirm_s` seconds, taken from CHALLENGE.md's "keeps the ball for a few
-seconds" proxy. It is fixed before evaluation and never tuned on public GT.
+Primary reference: `raw_hd`, i.e. DFL flags as published (the source defines
+possession by the player in control of the ball). `confirm_control` is an
+EXPERIMENTAL proxy only (a minimum-duration filter on live team switches); it is
+not accepted ground truth and must never be the sole basis for a model decision.
+See findings/dev-labels-audit.md.
 """
 import numpy as np
 
 FPS = 25
-CONFIRM_S = 2.0  # prespecified in FCB-5; sensitivity at 1 s and 3 s is reported, not selected
+CONFIRM_S = 2.0  # experimental proxy parameter only
 
 
-def raw_hd(alive, owner):
-    """D where the ball is dead, the flagged owner where alive, X where unknown."""
-    return np.where(alive == 0, "D", np.where(alive == 1, owner, "X"))
+def raw_hd(alive, owner, unknown=None):
+    """D where the ball is dead, the flagged owner where alive, X where unknown or masked."""
+    labels = np.where(alive == 0, "D", np.where(alive == 1, owner, "X"))
+    if unknown is not None:
+        labels = np.where(np.asarray(unknown, dtype=bool), "X", labels)
+    return labels
 
 
 def confirm_control(labels, period, confirm_s=CONFIRM_S, fps=FPS):
@@ -51,5 +52,11 @@ def confirm_control(labels, period, confirm_s=CONFIRM_S, fps=FPS):
     return out
 
 
-def challenge_labels(references, period, confirm_s=CONFIRM_S):
-    return confirm_control(raw_hd(references.alive, references.owner), period, confirm_s)
+def reference_labels(references):
+    """Primary reference: raw DFL flags with the unknown mask applied."""
+    return raw_hd(references.alive, references.owner, references.unknown)
+
+
+def proxy_labels(references, period, confirm_s=CONFIRM_S):
+    """Experimental proxy; the unknown mask is applied first, so masked frames stay X and break state."""
+    return confirm_control(reference_labels(references), period, confirm_s)

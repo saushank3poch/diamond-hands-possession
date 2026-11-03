@@ -21,9 +21,40 @@ sys.path.insert(0, str(ROOT / "src"))
 from possession import split  # noqa: E402
 from possession.adapters.dfl import SECTIONS, load_dfl  # noqa: E402
 from possession.evaluation.references import load_dfl_references  # noqa: E402
+from possession.evaluation.labels import confirm_control, reference_labels  # noqa: E402
+import subprocess  # noqa: E402
 
 FPS = 25
 RESTART_EVENTS = ("KickOff", "ThrowIn", "FreeKick", "GoalKick", "CornerKick", "Penalty", "RefereeBall")
+CONTROL_EVENTS = ("Play", "ShotAtGoal", "BallClaiming")
+MATCH_WINDOW_S = 5.0
+TAUS = (1.0, 2.0, 3.0)
+
+
+def read_events(events_path, home_id):
+    """(time, type, side, attrs) for every DFL event child; side is H/A/None."""
+    out = []
+    for ev in ET.parse(events_path).getroot().iter("Event"):
+        t = parse_time(ev.get("EventTime"))
+        for ch in ev:
+            team = ch.get("Team") or ch.get("WinnerTeam")
+            side = None if team is None else ("H" if team == home_id else "A")
+            out.append((t, ch.tag, side, dict(ch.attrib)))
+    return sorted(out, key=lambda e: e[0])
+
+
+def one_to_one(event_times, transition_times, window=MATCH_WINDOW_S):
+    """Greedy one-to-one pairing by smallest |dt| within window; signed latency = transition - event."""
+    pairs = sorted((abs(tt - et), i, j) for i, et in enumerate(event_times)
+                   for j, tt in enumerate(transition_times) if abs(tt - et) <= window)
+    used_e, used_t, lat = set(), set(), []
+    for _, i, j in pairs:
+        if i in used_e or j in used_t:
+            continue
+        used_e.add(i)
+        used_t.add(j)
+        lat.append(transition_times[j] - event_times[i])
+    return lat, len(event_times) - len(used_e), len(transition_times) - len(used_t)
 
 
 def files(data, match):
@@ -110,7 +141,7 @@ def audit_match(data, match):
     out["frames_used_for_agreement"] = int(sel.sum())
 
     # 3. H/A/D sequence per period, possessions and dead intervals.
-    label = np.where(refs.alive == 0, "D", np.where(refs.alive == 1, refs.owner, "X"))
+    label = reference_labels(refs)
     poss_dur, dead_dur, same_team_restart, restarts_total = [], [], 0, 0
     switch_new_team_dist, flipback_2s, switches = [], 0, 0
     total_time = 0
@@ -154,10 +185,9 @@ def audit_match(data, match):
     out["switch_new_team_within_1p5m_share"] = round(float((dist < 1.5).mean()), 4) if len(dist) else None
     out["switch_flips_back_within_2s_share"] = round(flipback_2s / max(switches, 1), 4)
 
-    # 4. Restart events (human, other games) vs dead->alive transitions in the flags.
-    ev_root = ET.parse(events_path).getroot()
-    ev_times = sorted(parse_time(ev.get("EventTime")) for ev in ev_root.iter("Event")
-                      if any(ch.tag in RESTART_EVENTS for ch in ev))
+    # 4. Restart events (human DFL events) vs dead->alive flag transitions: DFL internal consistency only.
+    events = read_events(events_path, home_id)
+    ev_times = [e[0] for e in events if e[1] in RESTART_EVENTS]
     starts = []
     for p in np.unique(tracking.period):
         if not p:
@@ -166,11 +196,60 @@ def audit_match(data, match):
         a = refs.alive[rows]
         edge = np.flatnonzero((a[1:] == 1) & (a[:-1] == 0)) + 1
         starts += [t[rows[e]] for e in edge if np.isfinite(t[rows[e]])]
-    starts = np.array(sorted(starts))
-    matched = [bool(len(starts)) and float(np.min(np.abs(starts - e))) <= 3.0 for e in ev_times]
+    lat, unmatched_events, unmatched_transitions = one_to_one(ev_times, sorted(starts))
     out["restart_events"] = len(ev_times)
-    out["dead_to_alive_transitions"] = int(len(starts))
-    out["restart_events_with_transition_within_3s_share"] = round(float(np.mean(matched)), 4) if matched else None
+    out["dead_to_alive_transitions"] = len(starts)
+    out["restart_one_to_one"] = {"window_s": MATCH_WINDOW_S, "matched": len(lat),
+                                 "unmatched_events": unmatched_events,
+                                 "unmatched_transitions": unmatched_transitions,
+                                 "signed_latency_s": summarise(lat)}
+
+    # 5. Control-specific evidence at live switches: independent human event semantics.
+    ev_t = np.array([e[0] for e in events])
+    groups = {"short_flipback": Counter(), "held_2s": Counter()}
+    for p in np.unique(tracking.period):
+        if not p:
+            continue
+        rows = np.flatnonzero(tracking.period == p)
+        rr = runs(label[rows])
+        for k, (a, b, v) in enumerate(rr):
+            if not (k and v in ("H", "A") and rr[k - 1][2] in ("H", "A") and rr[k - 1][2] != v):
+                continue
+            t0, t1 = t[rows[a]], t[rows[b - 1]]
+            if not (np.isfinite(t0) and np.isfinite(t1)):
+                continue
+            short = (b - a) < 2 * FPS and k + 1 < len(rr) and rr[k + 1][2] == rr[k - 1][2]
+            held = (b - a) >= 2 * FPS
+            if not (short or held):
+                continue
+            lo, hi = np.searchsorted(ev_t, t0 - 2.0), np.searchsorted(ev_t, t1 + 1.0)
+            window = events[lo:hi]
+            control = any(e[2] == v and (e[1] in CONTROL_EVENTS or (e[1] == "TacklingGame"
+                          and e[3].get("PossessionChange") == "true")) for e in window)
+            nochange = any(e[1] == "TacklingGame" and e[3].get("PossessionChange") == "false" for e in window)
+            cls = "control_event_by_new_team" if control else ("duel_no_possession_change" if nochange
+                                                               else "no_relevant_event")
+            groups["short_flipback" if short else "held_2s"][cls] += 1
+    out["switch_event_evidence"] = {g: dict(c) for g, c in groups.items()}
+    phases = {e[3].get("BallPossessionPhase") for e in events if e[3].get("BallPossessionPhase")}
+    out["event_possession_phases"] = len(phases)
+    out["flag_possessions"] = int(len(poss))
+
+    # 6. Experimental proxy sensitivity (not a reference; reported for transparency only).
+    sens = {}
+    primary = reference_labels(refs)
+    for tau in TAUS:
+        lab = confirm_control(primary, tracking.period, tau)
+        n, T = 0, 0
+        for p in np.unique(tracking.period):
+            if not p:
+                continue
+            seq = lab[tracking.period == p]
+            T += len(seq) / FPS
+            n += sum(1 for a, b, v in runs(seq) if v in ("H", "A"))
+        sens[f"tau_{tau:g}s"] = {"possessions_per_5min": round(n / (T / 300), 2),
+                                 "frames_changed": int((lab != primary).sum())}
+    out["proxy_sensitivity"] = sens
     return out
 
 
@@ -180,7 +259,11 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "findings" / "dev-labels-audit.json"))
     args = ap.parse_args()
     body = split.load()
-    report = {"split_sha256": body["split_sha256"], "dev_only": True, "matches": []}
+    git = lambda *a: subprocess.check_output(["git", "-C", str(ROOT), *a], text=True).strip()
+    report = {"split_sha256": body["split_sha256"], "dev_only": True,
+              "git_commit": git("rev-parse", "HEAD"),
+              "worktree_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
+              "matches": []}
     for match in body["dev"]:
         if match in body["holdout"]:
             raise SystemExit("refusing to audit a holdout match")

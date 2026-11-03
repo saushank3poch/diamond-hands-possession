@@ -7,7 +7,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from possession.evaluation.labels import confirm_control, raw_hd
+from possession.evaluation.labels import confirm_control, proxy_labels, raw_hd, reference_labels
+from possession.evaluation.references import References
 
 
 def lab(s, fps_per_char=1):
@@ -43,6 +44,25 @@ class ConfirmControlTests(unittest.TestCase):
         alive = np.array([0, 1, 1, -1])
         owner = np.array(["H", "H", "A", "A"])
         self.assertEqual("".join(raw_hd(alive, owner)), "DHAX")
+
+
+class MaskTests(unittest.TestCase):
+    def refs(self, alive, owner, unknown):
+        n = len(alive)
+        return References(np.arange(n), np.array(alive, dtype=np.int8), np.array(list(owner)),
+                          np.array(unknown, dtype=bool), (None,) * n, (None,) * n)
+
+    def test_unknown_mask_is_x_in_reference(self):
+        r = self.refs([1, 1, 1], "HHH", [False, True, False])
+        self.assertEqual("".join(reference_labels(r)), "HXH")
+
+    def test_unknown_mask_survives_proxy_and_breaks_state(self):
+        r = self.refs([1, 1, 1, 1, 1, 1], "HHHXAH", [False, False, False, True, False, False])
+        out = "".join(proxy_labels(r, np.ones(6, dtype=int), confirm_s=3))
+        self.assertEqual(out[3], "X")
+        self.assertEqual(out, "HHHXAA")
+        r = self.refs([1, 1, 1], "HHH", [False, True, False])
+        self.assertEqual("".join(proxy_labels(r, np.ones(3, dtype=int), confirm_s=1)), "HXH")
 
 
 if __name__ == "__main__":
