@@ -4,7 +4,7 @@
   "compare_to": {"path": "findings/results/E001_dev_metrics.json", "report": "baseline_smooth50"},
   "predictors": [
     {"label": "deadball_all", "name": "deadball", "groups": ["ball", "motion", "formation", "restart"]},
-    {"label": "ablate_no_ball", "name": "deadball", "groups": ["motion", "formation", "restart"]},
+    {"label": "detector_without_ball", "name": "deadball", "groups": ["motion", "formation", "restart"]},
     {"label": "ablate_no_motion", "name": "deadball", "groups": ["ball", "formation", "restart"]},
     {"label": "ablate_no_formation", "name": "deadball", "groups": ["ball", "motion", "restart"]},
     {"label": "ablate_no_restart", "name": "deadball", "groups": ["ball", "motion", "formation"]},

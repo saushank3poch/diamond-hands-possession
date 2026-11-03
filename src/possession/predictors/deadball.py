@@ -2,14 +2,17 @@
 
 Per frame, a logistic model (numpy, L2) estimates P(dead) from windowed tracking signals in
 four groups, each removable for ablation:
-  ball      - ball missing, time since last seen, last-seen distance to the nearest line or off
-              the pitch, windowed ball speed (missing ball alone is one input, never the rule)
+  ball      - every ball-derived signal: missing, time since last seen, last-seen distance to the
+              nearest line or off the pitch, windowed ball speed and its 3 s change, players
+              crowding the last-seen ball, its distance from the centre spot (missing ball alone
+              is one input, never the rule)
   motion    - windowed (1 s displacement) team speeds; per-frame derivatives are avoided because
               position jitter makes them meaningless (FCB-11 finding)
-  formation - team compactness, centroid separation, own-half shares (kick-off shape), players
-              crowding the last-seen ball (corner/free-kick/wall shapes)
-  restart   - change in team and ball speed between the past and the future few seconds
+  formation - team compactness, centroid separation, own-half shares (kick-off shape)
+  restart   - change in team speed between the past and the future 3 s, within a period
               (re-acceleration at a restart, deceleration at a stoppage)
+Dropping the ball group gives a detector whose dead-ball probability ignores the ball entirely
+(tested). The owner vote inside live runs still uses ball observations.
 Each signal is also averaged over centred 1 s / 4 s / 12 s windows within a period (offline).
 
 Decoding: P(dead) smoothed over 1 s, thresholded at the value that maximises dead-frame F1 on
@@ -123,18 +126,26 @@ def signals(tracking):
     centre_dist = np.linalg.norm(last, axis=1)
 
     def delta(x, s=3):
-        past = _rolling_mean(np.r_[x[s * FPS:], np.full(s * FPS, np.nan)], 0, blocks)  # future value
-        fut = np.r_[np.full(s * FPS, np.nan), x[:-s * FPS]]                          # past value
-        return past - fut
+        """x[t + s] - x[t - s], shifted within each period block; NaN where either side leaves it."""
+        k = s * FPS
+        out = np.full(len(x), np.nan)
+        for a, b in blocks:
+            seg = x[a:b]
+            if b - a > 2 * k:
+                out[a + k:b - k] = seg[2 * k:] - seg[:-2 * k]
+        return out
 
     return {
+        # Every signal derived from ball observations lives here, so dropping this group gives
+        # a detector that is invariant to the ball (tested).
         "ball": [("ball_missing", missing), ("ball_age_s", age), ("ball_line_dist", line_dist),
-                 ("ball_off_pitch", (line_dist < 0).astype(float)), ("ball_speed", ball_speed)],
+                 ("ball_off_pitch", (line_dist < 0).astype(float)), ("ball_speed", ball_speed),
+                 ("crowd_last_ball", crowd), ("ball_centre_dist", centre_dist),
+                 ("ball_speed_change_3s", delta(ball_speed))],
         "motion": [("speed_all", all_speed), ("speed_h", h_speed), ("speed_a", a_speed)],
         "formation": [("spread_h", hspread), ("spread_a", aspread), ("centroid_sep", sep),
-                      ("own_half_h", h_own), ("own_half_a", a_own), ("crowd_last_ball", crowd),
-                      ("ball_centre_dist", centre_dist)],
-        "restart": [("speed_change_3s", delta(all_speed)), ("ball_speed_change_3s", delta(ball_speed))],
+                      ("own_half_h", h_own), ("own_half_a", a_own)],
+        "restart": [("speed_change_3s", delta(all_speed))],
     }
 
 
@@ -185,6 +196,19 @@ def _min_runs(dead, min_dead, min_live):
             if out[a] == value and b - a < min_len and a > 0 and b < len(out):
                 out[a:b] = not value
     return out
+
+
+def live_owner(codes, window):
+    """Owner inside one live run. D comes only from the decoded dead mask, never from here:
+    frames with no owner vote take the nearest voted label within the run (carry forward,
+    then back-fill the head); a run with no vote at all is X (unknown)."""
+    voted = majority(codes, window)
+    known = voted != "D"
+    if not known.any():
+        return np.full(len(codes), "X", dtype="<U1")
+    idx = np.maximum.accumulate(np.where(known, np.arange(len(codes)), -1))
+    idx[idx < 0] = np.flatnonzero(known)[0]
+    return voted[idx]
 
 
 class DeadBall:
@@ -248,6 +272,6 @@ class DeadBall:
             seg = np.full(b - a, "D", dtype="<U1")
             for s, e in _runs(dead):
                 if not dead[s]:
-                    seg[s:e] = majority(codes[a + s:a + e], self.window)
+                    seg[s:e] = live_owner(codes[a + s:a + e], self.window)
             out[a:b] = seg
         return out
