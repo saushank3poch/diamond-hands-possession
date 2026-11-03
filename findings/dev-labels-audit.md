@@ -12,7 +12,7 @@ Revision 1 claimed DFL possession is "last-touch" and accepted a 2 s filter as t
 | Item | Verdict |
 |---|---|
 | DFL `BallStatus` → D | **Accept.** Internally consistent with DFL restart events (§3) |
-| DFL `BallPossession` → H/A | **Accept raw flags as the primary reference**, with a measured caveat (§4) |
+| DFL `BallPossession` → H/A | **Accept raw flags as the primary reference** for other-match development. This is defensible from the source definition, but it is not measured equivalence to Metrica (§4) |
 | 2 s confirm-control filter | **Experimental proxy only.** Never the sole basis of a model decision; reported for transparency |
 | DFL ↔ Metrica convention | **Unmeasured.** Neither dead-ball timing nor the possession definition can be compared without Metrica-side truth |
 | Metrica, SkillCorner | Not audited here (FCB-6). Metrica Game 1 events were already inspected, so that game is not untouched |
@@ -52,6 +52,8 @@ Same-team restarts: 24–43% of dead intervals have the same team on both sides.
 - **Control** = the new team has a `Play`, `ShotAtGoal` or `BallClaiming` event, or wins a `TacklingGame` with `PossessionChange="true"`.
 - **Duel without change** = a `TacklingGame` with `PossessionChange="false"`.
 
+Denominators: there are **1,599 live H↔A switches** across the 5 dev matches. 1,410 fall into the two groups below. The other **189 are excluded**: spells under 2 s that do not flip back to the previous team (they end in a D, an X or the period end).
+
 Pooled over the 5 dev matches:
 
 | switch type | n | control by new team | duel without possession change | no relevant event |
@@ -59,12 +61,17 @@ Pooled over the 5 dev matches:
 | held ≥ 2 s | 1081 | 29.5% | 15.2% | 55.3% |
 | short, flips back < 2 s | 329 | 23.7% | 27.7% | 48.6% |
 
-**Interpretation:**
-- Short flip-back switches coincide with a no-change duel more often than held switches: an excess of 12.5 points, about 41 switches, or ≈3% of all 1410 live switches.
-- Their control-event rate is only modestly lower.
-- So most short spells are not distinguishable from brief controlled possession by this evidence, and a blanket duration filter would also erase legitimate short control. That is why the filter is not the reference.
+**Interpretation (exploratory DFL-internal associations only):**
+- Short flip-back switches co-occur with a no-change duel in the window more often than held switches (27.7% vs 15.2%). Their control-event rate is only modestly lower (23.7% vs 29.5%).
+- This is an **association between event-window categories, not a label-error estimate or bound**, for four reasons:
+  - a nearby no-change duel need not describe that switch;
+  - windows can reuse the same event;
+  - "control" takes precedence when both types occur;
+  - the held group is not a known-correct baseline.
+- About half of all switches have no relevant event, so the error frequency is not identified.
+- The association does not support a blanket duration filter as truth, because it would also erase spells with control events.
 
-**Caveat:** about 50% of switches have no relevant event within ±2 s. Manual event timing jitter is comparable to short spell lengths, so this check bounds the problem rather than resolving it. **Estimated raw-flag disagreement with the challenge's "no change on a touch or duel" rule: on the order of 3% of live switches. Unverified against Metrica.**
+**Label and convention uncertainty remains unquantified**, both for raw-flag vs challenge rules and for DFL vs Metrica.
 
 ## Experimental proxy (not a reference)
 
