@@ -1,0 +1,10 @@
+{
+  "seed": 0,
+  "bootstrap_n": 1000,
+  "predictors": [
+    {"label": "baseline_raw", "name": "nearest_player", "window": 0},
+    {"label": "baseline_smooth25", "name": "nearest_player", "window": 25},
+    {"label": "baseline_smooth50", "name": "nearest_player", "window": 50},
+    {"label": "baseline_smooth125", "name": "nearest_player", "window": 125}
+  ]
+}
