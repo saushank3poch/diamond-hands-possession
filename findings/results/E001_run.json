@@ -5,7 +5,7 @@
     "dev-eval"
   ],
   "config_sha256": "d628d73c8f0f9ebc0eb7d7d81b1beb20ea56e5dc58a8beaca4f41c773bea66dd",
-  "git_commit": "e373162d3c880ffcb8792deaa4cef8cfb59bee14",
+  "git_commit": "27d8b82f44c175a2a4979f25458a8c4d840d4bc1",
   "lock_sha256": "db73686896c3bc78cad69dca9cab1728f7203a40284297f6df21d98ae02c9fa5",
   "mode": "dev",
   "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
