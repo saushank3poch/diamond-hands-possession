@@ -87,17 +87,29 @@ Paired per-match spellF1 difference vs smooth50, within each scenario (mean, and
 
 ---
 
-## E002: Dead-ball detector, FCB-11 (2026-11-03, commit a6f4c1c, run `run-524wnvyt`)
+## E002: Dead-ball detector, FCB-11 (2026-11-03, commit 99f05f0, run `run-fjwo1893`; revision 2)
 
-**Hypothesis (written before the run):** fusing tracking-only dead-ball evidence into the smooth50 baseline raises spellF1 over smooth50 in all 4 dev scenarios. Concretely: D where the fused score says dead, and the nearest-player vote confined to live runs elsewhere. In each scenario the mean paired per-match difference should be positive, with a majority of matches positive.
+**Hypothesis (written before the first run):** fusing tracking-only dead-ball evidence into the smooth50 baseline raises spellF1 over smooth50 in all 4 dev scenarios. Concretely: D where the fused score says dead, and the nearest-player vote confined to live runs elsewhere. In each scenario the mean paired per-match difference should be positive, with a majority of matches positive.
+
+**Revision 2** fixes three defects found in review, then re-runs:
+1. Restart deltas crossed period boundaries.
+2. Missing-ball frames inside decoded live runs could still become D through the owner vote.
+3. The "no ball" ablation still contained ball-derived signals.
+
+Now:
+- live-run ownership never emits D: it carries within the run, and X if there is no vote at all;
+- every ball-derived signal is in the ball group;
+- the ball-free detector is tested to be invariant to ball coordinates.
+
+The new tests fail on the revision 1 code (5 of 11) and pass now.
 
 **Change:** `predictors/deadball.py`. A per-frame logistic model is trained in leave-one-match-out folds. It uses windowed signals in 4 groups:
-- **ball:** missing, time since seen, last-seen distance to a line or off the pitch, windowed ball speed;
+- **ball:** missing, time since seen, last-seen distance to a line or off the pitch, windowed ball speed and its 3 s change, crowding around the last-seen ball, distance from the centre spot;
 - **motion:** 1 s displacement team speeds;
-- **formation:** team spread, centroid separation, own-half shares, crowding around the last-seen ball;
-- **restart:** speed change between the past and future 3 s.
+- **formation:** team spread, centroid separation, own-half shares;
+- **restart:** team speed change over ±3 s, within the period.
 
-Each signal is also averaged over centred 1, 4 and 12 s windows. Decoding:
+Each signal is also averaged over centred 1, 4 and 12 s windows within the period. Decoding:
 - P(dead) is smoothed over 1 s;
 - the threshold maximises dead-frame F1 on the *training* matches only;
 - the minimum run lengths are fixed a priori: dead 2 s, live 1 s.
@@ -111,36 +123,36 @@ No Smart Tagging.
 | | clean | degraded | short gaps | long gaps |
 |---|---|---|---|---|
 | smooth50 (E001) | 0.315 | 0.227 | 0.252 | 0.214 |
-| **deadball_all** | **0.432** [0.416, 0.448], Δ +0.117 (5/5) | **0.318** [0.306, 0.332], Δ +0.091 (5/5) | **0.358**, Δ +0.105 (5/5) | **0.297**, Δ +0.083 (5/5) |
-| only_ball | 0.427, +0.113 (5/5) | 0.307, +0.080 (5/5) | 0.353, +0.101 (5/5) | 0.291, +0.078 (5/5) |
-| no_ball | 0.360, +0.045 (5/5) | 0.273, +0.046 (5/5) | 0.311, +0.059 (5/5) | 0.259, +0.045 (5/5) |
-| only_motion | 0.334, +0.019 (4/5) | 0.255, +0.027 (5/5) | 0.286, +0.033 (4/5) | 0.241, +0.026 (5/5) |
-| no_motion | 0.428 | 0.315 | 0.357 | 0.292 |
-| no_formation | 0.429 | 0.315 | 0.356 | 0.297 |
-| no_restart | 0.437 | 0.316 | 0.355 | 0.300 |
+| **deadball_all** | **0.431** [0.416, 0.446], +0.117 (5/5) | **0.332** [0.319, 0.346], +0.105 (5/5) | **0.358** [0.344, 0.371], +0.106 (5/5) | **0.324** [0.311, 0.338], +0.111 (5/5) |
+| only_ball | 0.428, +0.114 (5/5) | 0.323, +0.096 (5/5) | 0.352, +0.100 (5/5) | 0.319, +0.105 (5/5) |
+| detector_without_ball | 0.355, +0.040 (5/5) | 0.275, +0.048 (5/5) | 0.295, +0.043 (5/5) | 0.268, +0.054 (5/5) |
+| only_motion | 0.334, +0.019 (4/5) | 0.266, +0.038 (5/5) | 0.287, +0.034 (4/5) | 0.261, +0.047 (5/5) |
+| no_motion | 0.429 | 0.328 | 0.357 | 0.319 |
+| no_formation | 0.430 | 0.330 | 0.359 | 0.322 |
+| no_restart | 0.432 | 0.330 | 0.358 | 0.323 |
 
 **deadball_all, degraded, other metrics:**
 
 | metric | deadball_all | smooth50 |
 |---|---|---|
-| alive/dead F1 | 0.952 | — |
-| D share (true 45.2%) | 45.5% | 1.6% |
-| macroF1 | 0.820 | 0.381 |
-| possessions (true 2,094) | 2,687 | 3,166 |
+| alive/dead F1 | 0.960 | — |
+| D share (true 45.2%) | 44.2% | 1.6% |
+| macroF1 | 0.826 | 0.381 |
+| possessions (true 2,094) | 2,578 | 3,166 |
 | mean \|latency\| at τ = 25 | 10.3 frames | 12.5 frames |
 
-**Verdict: confirmed on dev**, with the caveats below. The improvement holds in every scenario, on every match, and the intervals do not overlap.
+**Verdict: confirmed on dev.** The improvement holds in every scenario, on every match, and the pooled intervals do not overlap. This is a dev result only; it does not establish target performance.
 
-**Ablation reading (honest):**
-- **The ball group carries the gain.** only_ball reaches 0.307 vs 0.318 for all groups on degraded.
-- **The other groups are unproven.** Dropping any one of motion, formation or restart changes spellF1 by ≤ 0.006, which is inside the intervals. Their combined contribution (all minus only_ball) is +0.005 to +0.011, also inside the interval. They stay in for now as cheap redundancy, but no gain is claimed for them.
-- **Without the ball group the detector still helps.** Motion, formation and restart alone give +0.045 to +0.059 (5/5 matches in every scenario). That is the robustness floor if target ball behaviour differs from the simulation.
+**Ablation reading:**
+- **The ball group carries most of the gain:** only_ball scores 0.323 vs 0.332 on degraded.
+- **Motion, formation and restart are not individually established.** Dropping any one changes spellF1 by ≤ 0.004. Their combined contribution (all minus only_ball) is +0.003 to +0.009, inside the intervals. No gain is claimed for them; they stay in as cheap redundancy.
+- **A ball-free detector still beats smooth50** on dev in every scenario: +0.040 to +0.054, 5/5 matches each. The owner vote still uses the ball. This is a dev ablation, **not a lower bound on target performance**.
 
-**Main risk: dependence on the simulator.**
-- The ball group's strength partly reflects two things: DFL tracking keeps the ball's position when it is off the pitch, and FCB-8's assumption that an off-pitch ball goes missing 90% of the time.
-- The target ATD's behaviour for dead or off-pitch balls is unpublished. If the target loses the ball far from the lines, or keeps tracking it during stoppages, the ball features transfer less well, and the no_ball floor matters more.
-- This cannot be resolved on dev. Label-free target diagnostics (FCB-19), such as predicted D share and stoppage count per half, will show whether the detector behaves plausibly on the target.
+**Main risk: transfer.**
+- The ball group's strength partly reflects two things: DFL keeps tracking the ball when it is off the pitch, and FCB-8 assumes an off-pitch ball goes missing 90% of the time.
+- The target ATD's dead-ball behaviour is unpublished, and dev data cannot resolve it.
+- Contained, label-free target diagnostics (FCB-19) can flag an implausible output, such as predicted D share or stoppages per half. They can neither validate transfer nor select a model.
 
 **Other notes:**
-- **Windowed motion (FCB-11 finding):** per-frame speeds are swamped by FCB-8's per-frame position jitter (6.1 vs 6.2 m/s dead vs alive degraded); 1 s displacement speeds recover the contrast (1.1 vs 2.3). The motion group uses windowed speeds.
-- **Possession over-count remains:** 2,687 predicted vs 2,094 true on degraded. That is the next lever, the turnover rules (FCB-12).
+- **Windowed motion:** per-frame speeds are swamped by FCB-8's per-frame position jitter. The motion group uses 1 s displacement speeds.
+- **Possession over-count remains:** 2,578 predicted vs 2,094 true on degraded. That is the next lever, the turnover rules (FCB-12).
