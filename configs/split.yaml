@@ -1,0 +1,79 @@
+{
+  "competition_of": {
+    "DFL-MAT-J03WMX": "DFL-COM-000001",
+    "DFL-MAT-J03WN1": "DFL-COM-000001",
+    "DFL-MAT-J03WOH": "DFL-COM-000002",
+    "DFL-MAT-J03WOY": "DFL-COM-000002",
+    "DFL-MAT-J03WPY": "DFL-COM-000002",
+    "DFL-MAT-J03WQQ": "DFL-COM-000002",
+    "DFL-MAT-J03WR9": "DFL-COM-000002"
+  },
+  "dev": [
+    "DFL-MAT-J03WN1",
+    "DFL-MAT-J03WOH",
+    "DFL-MAT-J03WPY",
+    "DFL-MAT-J03WQQ",
+    "DFL-MAT-J03WR9"
+  ],
+  "dev_folds": [
+    {
+      "train": [
+        "DFL-MAT-J03WOH",
+        "DFL-MAT-J03WPY",
+        "DFL-MAT-J03WQQ",
+        "DFL-MAT-J03WR9"
+      ],
+      "validate": "DFL-MAT-J03WN1"
+    },
+    {
+      "train": [
+        "DFL-MAT-J03WN1",
+        "DFL-MAT-J03WPY",
+        "DFL-MAT-J03WQQ",
+        "DFL-MAT-J03WR9"
+      ],
+      "validate": "DFL-MAT-J03WOH"
+    },
+    {
+      "train": [
+        "DFL-MAT-J03WN1",
+        "DFL-MAT-J03WOH",
+        "DFL-MAT-J03WQQ",
+        "DFL-MAT-J03WR9"
+      ],
+      "validate": "DFL-MAT-J03WPY"
+    },
+    {
+      "train": [
+        "DFL-MAT-J03WN1",
+        "DFL-MAT-J03WOH",
+        "DFL-MAT-J03WPY",
+        "DFL-MAT-J03WR9"
+      ],
+      "validate": "DFL-MAT-J03WQQ"
+    },
+    {
+      "train": [
+        "DFL-MAT-J03WN1",
+        "DFL-MAT-J03WOH",
+        "DFL-MAT-J03WPY",
+        "DFL-MAT-J03WQQ"
+      ],
+      "validate": "DFL-MAT-J03WR9"
+    }
+  ],
+  "holdout": [
+    "DFL-MAT-J03WMX",
+    "DFL-MAT-J03WOY"
+  ],
+  "manifest_sha256": "28467560af73ed6b4c71af6b3c78f6aed52808c951c7932db704927bf0f04a1f",
+  "method": "stratified by competition, 1 holdout match per stratum, random.Random(seed).sample",
+  "rules": [
+    "Holdout matches: mechanical integrity checks only until FCB-18 (no label, outcome or error inspection).",
+    "All tuning and selection: leave-one-match-out over dev; matches, not halves, are the unit.",
+    "Changing this file requires owner approval."
+  ],
+  "seed": 20261103,
+  "source": "DFL/IDSSE figshare 28196177 v1",
+  "split_sha256": "e80729dc59678fbe26c3d636eef9bc99da7ad840fdbfc6397f3bce361399a26b"
+}
