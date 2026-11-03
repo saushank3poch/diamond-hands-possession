@@ -6,7 +6,7 @@ does not import the evaluation package and takes no label argument.
 Calibration targets are the published DATA.md input statistics, and nothing else:
   - ball visible on 59.3% of graded frames (BALL_VISIBLE)
   - mean 20.5 tracked objects over graded frames (MEAN_OBJECTS), out of ~22 on the pitch
-  - 46 track slots, i.e. 23 per team (SLOTS_PER_TEAM); slots are tracklets, not people
+  - 46 track slots (published); the 23/23 split per team is an assumption
   - occasional duplicates (more than 22 objects)
 Parameters DATA.md does not publish (gap lengths, how strongly crowding and ball
 speed drive ball loss, jitter, duplicate rate) are fixed ASSUMPTIONS in `Config`. They are
@@ -21,7 +21,7 @@ from possession.tracking import Tracking
 FPS = 25
 BALL_VISIBLE = 0.593   # DATA.md: 94,214 / 158,857 graded frames
 MEAN_OBJECTS = 20.5    # DATA.md: mean tracked objects over graded frames
-SLOTS_PER_TEAM = 23    # DATA.md: 46 track slots in the tactical ATD
+SLOTS_PER_TEAM = 23    # DATA.md publishes 46 slots; the even 23/23 team split is an ASSUMPTION
 
 
 @dataclass(frozen=True)
@@ -53,24 +53,49 @@ def _share(mask, where):
     return round(float(mask[where].mean()), 4) if where.any() else None
 
 
-def _markov_mask(rng, p_on, q_off):
-    """Two-state chain: from visible, go missing with prob p_on[t]; from missing, recover with q_off."""
+def block_starts(period):
+    """True on the first frame of every contiguous period block (period 0 rows form their own blocks).
+
+    Period boundaries are observable metadata; nothing temporal may cross them."""
+    period = np.asarray(period)
+    starts = np.zeros(len(period), dtype=bool)
+    if len(period):
+        starts[0] = True
+        starts[1:] = period[1:] != period[:-1]
+    return starts
+
+
+def _block_end(starts):
+    """Exclusive end index of the block containing each frame."""
+    n = len(starts)
+    idx = np.flatnonzero(starts)
+    ends = np.r_[idx[1:], n]
+    return np.repeat(ends, np.diff(np.r_[idx, n]))
+
+
+def _markov_mask(rng, p_on, q_off, resets):
+    """Two-state chain: from visible, go missing with prob p_on[t]; from missing, recover with q_off.
+
+    State resets to visible before each frame where `resets` is True (period starts)."""
     n = len(p_on)
     u = rng.random(n)
     out = np.zeros(n, dtype=bool)
     missing = False
     for t in range(n):
+        if resets[t]:
+            missing = False
         missing = (u[t] >= q_off) if missing else (u[t] < p_on[t])
         out[t] = missing
     return out
 
 
-def _ball_entry_logits(tracking, cfg):
+def _ball_entry_logits(tracking, cfg, starts):
     ball = tracking.ball
     d = np.linalg.norm(tracking.players - ball[:, None, :], axis=-1)
     crowd = np.sum(np.nan_to_num(d, nan=np.inf) < cfg.crowd_radius_m, axis=1)
     v = np.zeros(len(ball))
     v[1:] = np.linalg.norm(np.diff(ball, axis=0), axis=1) * FPS
+    v[starts] = 0.0  # no derivative across a period boundary
     v = np.nan_to_num(v, nan=0.0)
     return cfg.crowd_weight * crowd + cfg.speed_weight * np.minimum(v, 40.0)
 
@@ -95,7 +120,9 @@ def degrade(tracking: Tracking, cfg: Config = Config()):
 
     # 1. Ball dropout: bursty, more likely when crowded or fast, near-certain off the pitch.
     q_ball = 1.0 / (cfg.ball_gap_mean_s * FPS)
-    logits = _ball_entry_logits(tracking, cfg)
+    starts = block_starts(tracking.period)
+    block_end = _block_end(starts)
+    logits = _ball_entry_logits(tracking, cfg, starts)
     d_ball = np.linalg.norm(tracking.players - tracking.ball[:, None, :], axis=-1)
     crowd = np.sum(np.nan_to_num(d_ball, nan=np.inf) < cfg.crowd_radius_m, axis=1)
     already = tracking.ball_missing
@@ -111,12 +138,12 @@ def degrade(tracking: Tracking, cfg: Config = Config()):
     base = _calibrate_offset(need, logits[free], q_ball) if need > 0 else -50.0
     # One deterministic correction pass: the stationary formula ignores burst/edge effects.
     state = rng.bit_generator.state
-    trial = _markov_mask(rng, _sigmoid(base + logits), q_ball)
+    trial = _markov_mask(rng, _sigmoid(base + logits), q_ball, starts)
     got = trial[free].mean() if free.any() else 0.0
     if need > 0 and got > 0:
         base = _calibrate_offset(float(np.clip(need * need / got, 0, 0.999)), logits[free], q_ball)
     rng.bit_generator.state = state
-    chain = _markov_mask(rng, _sigmoid(base + logits), q_ball)
+    chain = _markov_mask(rng, _sigmoid(base + logits), q_ball, starts)
     ball_missing = already | forced | (chain & in_period)
     ball = tracking.ball + rng.normal(0, cfg.jitter_ball_m, tracking.ball.shape)
     ball[ball_missing] = np.nan
@@ -131,11 +158,12 @@ def degrade(tracking: Tracking, cfg: Config = Config()):
     visible = present.copy()
     for j in range(present.shape[1]):
         if present[:, j].any():
-            visible[:, j] &= ~_markov_mask(rng, np.full(n, p_on), q_pl)
+            visible[:, j] &= ~_markov_mask(rng, np.full(n, p_on), q_pl, starts)
     players = tracking.players + rng.normal(0, cfg.jitter_player_m, tracking.players.shape)
 
     # 3. Fragment into tracklets and re-slot into a fixed per-team pool (identity-free slots).
     breaks = rng.random(visible.shape) < cfg.tracklet_break_per_min / (60 * FPS)
+    breaks |= starts[:, None]  # tracklets never span a period boundary
     teams_out, slots_out = [], []
     pools = {}
     for team in ("H", "A"):
@@ -154,10 +182,11 @@ def degrade(tracking: Tracking, cfg: Config = Config()):
         stops = np.r_[starts[1:], n]
         for a, b in zip(starts, stops):
             end_vis = np.flatnonzero(~v[a:b])
-            segments.append((a, a + (end_vis[0] if len(end_vis) else b - a), j, False))
+            stop = a + (end_vis[0] if len(end_vis) else b - a)
+            segments.append((a, min(stop, block_end[a]), j, False))
     dup_len = max(int(cfg.duplicate_mean_s * FPS), 1)
     for a, j in zip(*np.nonzero(visible & (rng.random(visible.shape) < cfg.duplicate_rate))):
-        segments.append((a, min(a + dup_len, n), j, True))
+        segments.append((a, min(a + dup_len, block_end[a]), j, True))
     segments.sort(key=lambda seg: (seg[0], seg[3], seg[2]))
 
     occupied_until = np.full(n_slots, -1)

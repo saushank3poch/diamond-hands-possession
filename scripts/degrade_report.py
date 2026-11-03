@@ -40,13 +40,15 @@ def main():
         t0 = time.time()
         clean = load_dfl(info, raw)
         t1 = time.time()
-        _, stats = degrade(clean, Config(seed=match_seed(args.seed, match)))
+        cfg = Config(seed=match_seed(args.seed, match))
+        _, stats = degrade(clean, cfg)
         stats.update(match=match, clean_ball_visible=round(float((~clean.ball_missing)[clean.period > 0].mean()), 4),
                      load_s=round(t1 - t0, 1), degrade_s=round(time.time() - t1, 1))
-        stats.pop("config")
+        stats["effective_config"] = stats.pop("config")  # includes the actual per-match seed
         report["matches"].append(stats)
         print(json.dumps(stats), flush=True)
-    report["config"] = Config().__dict__
+    report["base_seed"] = args.seed
+    report["seed_rule"] = "match_seed(base_seed, match_id); see scripts/degrade_report.py"
     Path(args.out).write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
 
 
