@@ -25,7 +25,7 @@ Gap lengths, crowding and speed weights, break rate, ghost rate and jitter are *
 
 | statistic | target | achieved |
 |---|---|---|
-| ball visible (period frames) | 59.3% | 58.7–59.6% |
+| ball visible (period frames) | 59.3% | 58.6–59.6% |
 | mean visible objects | 20.5 | 20.45–20.53 |
 | frames with more than 22 objects | "occasionally" | 0.3–1.1% |
 | slots | 46 | 46 |
