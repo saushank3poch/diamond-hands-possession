@@ -3,21 +3,34 @@
 FCB-1 adds run bookkeeping and output containment only. It does not implement a
 model, read match assets, score public labels, or generate a submission.
 
-Run the full synthetic suite from a clean clone with Python 3.10 or newer:
+The FCB-2 contract tests exercise the official scorer and therefore require
+NumPy and pandas. Set up the pinned environment below, then run:
 
 ```sh
 make test
 ```
 
-The harness has no third-party dependencies or network calls. `requirements.lock`
+The run harness itself has no third-party dependencies or network calls. `requirements.lock`
 pins the existing scorer environment (Python 3.14). Install it when using the
-official scorer, outside the offline run itself:
+official scorer and contract tests, outside the offline run itself:
 
 ```sh
 python3.14 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock
 make test PYTHON=.venv/bin/python
 ```
+
+Make prefers `.venv/bin/python` when it exists; otherwise it uses `python3`.
+Missing scorer dependencies fail the suite, rather than silently skipping it.
+Contract tests generate all observations, reference sequences, XML and CSV files
+in temporary directories. They never load target assets or the public GT.
+
+`possession.periods.predict_periods` creates fresh predictor state for each
+half-open block, validates returned labels, and writes X outside those blocks.
+Only published periods or observable discontinuities may define its blocks.
+Reference labels and masks belong to the evaluator and are not accepted by this
+helper. FCB-2 checks that boundary using a stateful test double; real model and
+adapter leakage checks must also be exercised when FCB-4/FCB-12 supply them.
 
 Configurations in `configs/*.yaml` use the JSON subset of YAML 1.2, parsed with
 the standard library. `seed` is required, an integer from 0 to 2**32 - 1.
