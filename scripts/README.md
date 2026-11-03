@@ -11,13 +11,12 @@ make test
 ```
 
 The run harness itself has no third-party dependencies or network calls. `requirements.lock`
-pins the existing scorer environment (Python 3.14). Install it when using the
-official scorer and contract tests, outside the offline run itself:
+pins the scorer and adapter environment (Python 3.14), including transitive
+dependencies. Install it outside the offline run itself:
 
 ```sh
-python3.14 -m venv .venv
-.venv/bin/python -m pip install -r requirements.lock
-make test PYTHON=.venv/bin/python
+make setup
+make test
 ```
 
 Make prefers `.venv/bin/python` when it exists; otherwise it uses `python3`.
@@ -90,3 +89,11 @@ Keep match-data links intact. Store generated outputs in `runs/`, `artifacts/`
 or `submissions/`; these and `external/` are ignored. The upstream data exclusions
 remain in force. Claude reviews the FCB-1 branch before merge; later tickets
 supply adapters, contract tests, evaluation and model implementations.
+
+## Common schema and adapters
+
+FCB-4 provides label-free tracking and a separate evaluator reference reader.
+See [ADAPTERS.md](ADAPTERS.md) for units, period/frame mappings, missingness,
+attack direction, import boundaries, loader provenance and contained target usage.
+The synthetic suite needs the complete lock, including kloppy; no actual match
+records are used by these tests.
