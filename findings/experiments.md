@@ -156,3 +156,14 @@ No Smart Tagging.
 **Other notes:**
 - **Windowed motion:** per-frame speeds are swamped by FCB-8's per-frame position jitter. The motion group uses 1 s displacement speeds.
 - **Possession over-count remains:** 2,578 predicted vs 2,094 true on degraded. That is the next lever, the turnover rules (FCB-12).
+
+
+## E003: Control-confirmed ownership (prespecified, 2026-11-03)
+
+Hypothesis: replacing E002 live ownership with sustained control evidence raises primary dev spellF1 in all four scenarios, with positive mean paired per-match differences, a majority positive, and non-overlapping pooled 90% intervals versus E002. Default confirmation is 0.4 s; 0.2 and 0.8 s are prespecified sensitivity ablations, not proxy-label-derived minima. A 0.4 s delayed-output variant isolates back-dating. No target or holdout run.
+
+Evidence: observed ball within 2.5 m of the nearest player, at least 0.5 m advantage over an observed opponent, and supported 0.96 s displacement motion (relative speed <=4 m/s or ball speed <=3 m/s). Missing/contested evidence retains an established owner and resets a pending switch. Confirmations are back-dated; the first confirmed owner fills the live-run head (provisional restart assignment, to be assessed in FCB-13). Unknown runs stay X; only the unchanged dead detector emits D. All limits are engineering assumptions fixed before the run.
+
+Confirmation lag for continuous evidence is (N-1)/25: 0.16/0.36/0.76 s for 5/10/20 frames. Back-dating removes this output delay relative to evidence onset, not relative to unknown true control. Motion uses future samples, so all variants remain offline. Official transition latency and synthetic onset/confirmation tests measure complementary effects.
+
+Command: `make dev-eval CONFIG=configs/dev_turnover.yaml`. Results pending. E002 remains the selected baseline until evidence supports adoption.

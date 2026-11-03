@@ -1,0 +1,31 @@
+{
+  "seed": 0,
+  "bootstrap_n": 1000,
+  "compare_to": {
+    "path": "findings/results/E002_dev_metrics.json",
+    "report": "deadball_all"
+  },
+  "predictors": [
+    {
+      "label": "turnover_04",
+      "name": "turnover",
+      "confirmation_s": 0.4
+    },
+    {
+      "label": "turnover_02",
+      "name": "turnover",
+      "confirmation_s": 0.2
+    },
+    {
+      "label": "turnover_08",
+      "name": "turnover",
+      "confirmation_s": 0.8
+    },
+    {
+      "label": "turnover_04_delayed",
+      "name": "turnover",
+      "confirmation_s": 0.4,
+      "backdate": false
+    }
+  ]
+}

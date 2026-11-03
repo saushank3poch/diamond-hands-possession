@@ -262,6 +262,10 @@ class DeadBall:
         blocks = _period_blocks(tracking.period)
         return _rolling_mean(p, FPS // 2, blocks)
 
+    def owner_run(self, tracking, codes, start, stop):
+        """Ownership hook; called independently for each decoded live run."""
+        return live_owner(codes[start:stop], self.window)
+
     def predict(self, tracking):
         n = len(tracking.frame)
         out = np.full(n, "X", dtype="<U1")
@@ -272,6 +276,6 @@ class DeadBall:
             seg = np.full(b - a, "D", dtype="<U1")
             for s, e in _runs(dead):
                 if not dead[s]:
-                    seg[s:e] = live_owner(codes[a + s:a + e], self.window)
+                    seg[s:e] = self.owner_run(tracking, codes, a + s, a + e)
             out[a:b] = seg
         return out

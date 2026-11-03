@@ -8,7 +8,9 @@ Predictors never import the evaluation or adapter packages.
 from possession.predictors.baseline import NearestPlayer
 from possession.predictors.deadball import DeadBall
 
-REGISTRY = {"nearest_player": NearestPlayer, "deadball": DeadBall}
+from possession.predictors.turnover import Turnover
+
+REGISTRY = {"nearest_player": NearestPlayer, "deadball": DeadBall, "turnover": Turnover}
 
 
 def make(spec):
