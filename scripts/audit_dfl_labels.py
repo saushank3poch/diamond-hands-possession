@@ -222,7 +222,8 @@ def audit_match(data, match):
             held = (b - a) >= 2 * FPS
             if not (short or held):
                 continue
-            lo, hi = np.searchsorted(ev_t, t0 - 2.0), np.searchsorted(ev_t, t1 + 1.0)
+            # Fixed window around the switch start, identical for short and held spells (no length bias).
+            lo, hi = np.searchsorted(ev_t, t0 - 2.0), np.searchsorted(ev_t, t0 + 1.0)
             window = events[lo:hi]
             control = any(e[2] == v and (e[1] in CONTROL_EVENTS or (e[1] == "TacklingGame"
                           and e[3].get("PossessionChange") == "true")) for e in window)
