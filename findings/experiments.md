@@ -196,4 +196,31 @@ Prespecified rule: anchor the ball nearest in time within +/-0.5s of each predic
 
 Separate diagnostic: exact reference D->H/A edges inside a period, excluding GT-X gaps and period heads. Report correct/total, H/A prediction coverage, conditional H/A accuracy and D/X misses. These oracle-time labels are evaluator-only and never reset or seed a predictor. The diagnostic conflates restart detection timing and ownership; it is not conditional accuracy given correct boundaries.
 
-Command: `make dev-eval CONFIG=configs/dev_restart.yaml`. Results pending. E002 stays selected unless the full criterion passes.
+Command: `make dev-eval CONFIG=configs/dev_restart.yaml`. Producer `041d6355e9190a871fbbc7735ab5464942c509fb`, clean tree, `run-ms9utn7a`. Full metrics/provenance: `results/E004_dev_metrics.json` and `results/E004_run.json`.
+
+### E004 results and adoption decision
+
+E002 reproduction matches every previously reported pooled and per-match metric exactly, on primary and proxy labels in all four scenarios. New restart diagnostics do not change the existing scoring. Primary pooled spellF1 [90% possession-bootstrap interval], mean paired delta vs E002 (matches positive):
+
+| candidate | clean | degraded | short gaps | long gaps |
+|---|---|---|---|---|
+| restart_geometry | 0.4330 [0.4173, 0.4487], +0.0020 (5/5) | 0.3336 [0.3203, 0.3475], +0.0012 (4/5) | 0.3599 [0.3459, 0.3733], +0.0019 (4/5) | 0.3257 [0.3125, 0.3391], +0.0014 (4/5) |
+| restart_distance | 0.4327 [0.4172, 0.4483], +0.0017 (5/5) | 0.3336 [0.3203, 0.3475], +0.0012 (4/5) | 0.3599 [0.3459, 0.3733], +0.0019 (4/5) | 0.3256 [0.3124, 0.3390], +0.0013 (4/5) |
+
+Exact-reference-time restart ownership (487 within-period D->H/A edges; D/X count as wrong):
+
+| candidate | clean correct | degraded correct | short gaps correct | long gaps correct |
+|---|---|---|---|---|
+| e002_reference | 341/487 (70.02%) | 253/487 (51.95%) | 213/487 (43.74%) | 263/487 (54.00%) |
+| restart_geometry | 352/487 (72.28%) | 255/487 (52.36%) | 216/487 (44.35%) | 270/487 (55.44%) |
+| restart_distance | 350/487 (71.87%) | 255/487 (52.36%) | 216/487 (44.35%) | 269/487 (55.24%) |
+
+**Verdict: inconclusive; do not adopt. E002 remains selected.** All mean paired spellF1 changes are positive, but every interval overlaps E002, failing the prespecified adoption criterion. No additional thresholds were searched. These possession-bootstrap intervals are conditional on these five dev matches, not generalisation intervals. Neither the slight accuracy increase nor positive point estimates establish a reliable improvement.
+
+On default degradation the full rule gives 255/487 exact-edge correct (52.36%) versus E002's253/487 (51.95%). Both predict a team at333/487 edges (68.38% coverage); conditional H/A accuracy is76.58% vs75.98%. Both predict D at154 edges and X at0: these misses include detection timing, so this is not pure taker-identification accuracy. The denominator excludes period heads and unknown gaps. No boundaries were given to the predictor.
+
+**Geometry ablation:** geometry and distance-only outputs have identical aggregate scores in default and short-gap degradation. Geometry adds two correct owners on clean inputs and one on long-gap inputs. This does not establish a geometry contribution or separately validate throw-in accuracy; no event-type labels were used. The implementation supplies the tracking-only throw-in cue and a synthetic taker/receiver test, not a measured throw-in-specific success claim.
+
+**Fragmentation risk:** default-degraded predicted spells rise from2578 to2599, while truth has2094. The one-second correction can revert to the previous baseline owner at its cap, creating a synthetic switch; that is a plausible cost of this design, not a measured causal attribution for every extra spell. Do not change the cap or rerun a search based on this result in E004.
+
+The dead detector, model training and labels are unchanged. All experiments are dev-only; no target/holdout/public-GT processing. FCB13 implementation and separate restart evaluation are complete, but the empirical adoption criterion is not met. Keep the candidate experimental.
