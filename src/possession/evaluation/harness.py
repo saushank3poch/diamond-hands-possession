@@ -9,6 +9,7 @@
   all dev matches (matches concatenated with an X separator so nothing crosses them) with the
   official 1000-draw bootstrap (5th-95th percentile, i.e. a 90% interval).
 """
+from dataclasses import asdict
 import hashlib
 import json
 from pathlib import Path
@@ -30,6 +31,36 @@ from evaluation import possession_metrics as pm  # noqa: E402
 
 DATA = ROOT.parent / "external" / "idsse"
 CACHE = ROOT / "runs" / "cache" / "dfl"
+MANIFEST = ROOT / "configs" / "external" / "idsse_manifest.json"
+CACHE_SCHEMA = 2
+SRC = ROOT / "src" / "possession"
+# Code that determines cached inputs/references; any change invalidates the cache.
+CACHE_CODE = (SRC / "adapters" / "dfl.py", SRC / "evaluation" / "references.py", SRC / "tracking.py",
+              ROOT / "requirements.lock")
+
+
+def _sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for b in iter(lambda: f.read(1 << 22), b""):
+            h.update(b)
+    return h.hexdigest()
+
+
+def cache_identity(match, files):
+    """Everything that determines the cached (tracking, references) pair for a match."""
+    manifest = {f["name"]: f["sha256"] for f in json.loads(MANIFEST.read_text())["files"]}
+    sources = []
+    for path in files:
+        st = path.stat()
+        sources.append({"name": path.name, "manifest_sha256": manifest.get(path.name),
+                        "size": st.st_size, "mtime_ns": st.st_mtime_ns})
+    code = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in CACHE_CODE}
+    return {"schema": CACHE_SCHEMA, "match": match, "sources": sources, "code": code}
+
+
+def scorer_sha256():
+    return hashlib.sha256((ROOT / "evaluation" / "possession_metrics.py").read_bytes()).hexdigest()
 
 # Degradation variants: the default plus two alternative gap-length assumptions (robustness band).
 VARIANTS = {
@@ -56,24 +87,50 @@ def _files(match):
 
 
 def load_match(match, split):
-    """(Tracking, References) for a dev match, cached under ignored runs/cache."""
+    """(Tracking, References) for a dev match, cached under ignored runs/cache.
+
+    The cache key binds the source files (manifest SHA-256, size, mtime), the parsing code,
+    the dependency lock and a schema version. On a miss the source bytes are verified against
+    the checksum manifest before parsing. Tracking/reference alignment is checked on every load.
+    """
     if match not in split["dev"] or match in split["holdout"]:
         raise ValueError("only dev matches may be evaluated here")
-    key = hashlib.sha256((split["split_sha256"] + match).encode()).hexdigest()[:16]
+    files = _files(match)
+    identity = cache_identity(match, files)
+    key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()[:24]
     t_path, r_path = CACHE / f"{match}-{key}.tracking.npz", CACHE / f"{match}-{key}.refs.npz"
     if t_path.exists() and r_path.exists():
         tracking = Tracking.load(t_path)
         with np.load(r_path, allow_pickle=False) as z:
             refs = References(z["frame"], z["alive"], z["owner"], z["unknown"], (), ())
-        return tracking, refs
-    info, raw = _files(match)
-    tracking = load_dfl(info, raw)
-    refs = load_dfl_references(raw, tracking)
-    CACHE.mkdir(parents=True, exist_ok=True)
-    tracking.save(t_path)
-    with open(r_path, "wb") as h:
-        np.savez_compressed(h, frame=refs.frame, alive=refs.alive, owner=refs.owner, unknown=refs.unknown)
+    else:
+        for path, src in zip(files, identity["sources"]):
+            if src["manifest_sha256"] is None or _sha256(path) != src["manifest_sha256"]:
+                raise ValueError("source file does not match the checksum manifest")
+        tracking = load_dfl(*files)
+        refs = load_dfl_references(files[1], tracking)
+        CACHE.mkdir(parents=True, exist_ok=True)
+        tracking.save(t_path)
+        with open(r_path, "wb") as h:
+            np.savez_compressed(h, frame=refs.frame, alive=refs.alive, owner=refs.owner, unknown=refs.unknown)
+    n = len(tracking.frame)
+    if not (np.array_equal(refs.frame, tracking.frame) and len(refs.alive) == n
+            and len(refs.owner) == n and len(refs.unknown) == n):
+        raise ValueError("references are not aligned with tracking")
     return tracking, refs
+
+
+def scored_sequence(gt, pred, period):
+    """Evaluator-only: lay out active periods with one X separator after each, so no spell,
+    transition or abstention fill crosses a period (or match) boundary. Real frames are kept;
+    frames outside active periods are dropped (they are X in the truth and never graded)."""
+    gts, prs = [], []
+    cuts = np.r_[0, np.flatnonzero(np.diff(period) != 0) + 1, len(period)]
+    for a, b in zip(cuts[:-1], cuts[1:]):
+        if period[a] > 0:
+            gts += [gt[a:b], np.array(["X"])]
+            prs += [pred[a:b], np.array(["X"])]
+    return np.concatenate(gts), np.concatenate(prs)
 
 
 def gt_labels(refs, tracking, label_set):
@@ -108,7 +165,15 @@ def evaluate(spec, seed=0, bootstrap_n=1000, variants=tuple(VARIANTS), label_set
     dev = list(split["dev"])
     data = {m: load_match(m, split) for m in dev}
     report = {"split_sha256": split["split_sha256"], "predictor": spec, "seed": seed,
-              "bootstrap_n": bootstrap_n, "results": {}}
+              "bootstrap_n": bootstrap_n, "results": {},
+              "provenance": {"split_sha256": split["split_sha256"], "seed": seed, "dev": dev,
+                             "variants": {v: VARIANTS[v] for v in variants},
+                             "degrade_defaults": asdict(DegradeConfig()),
+                             "label_sets": list(label_sets), "bootstrap_n": bootstrap_n,
+                             "scorer_sha256": scorer_sha256(),
+                             "labels_sha256": hashlib.sha256((SRC / "evaluation" / "labels.py").read_bytes()).hexdigest(),
+                             "degrade_sha256": hashlib.sha256((SRC / "degrade.py").read_bytes()).hexdigest(),
+                             "inputs": {m: cache_identity(m, _files(m)) for m in dev}}}
     for variant in variants:
         inputs = {m: variant_input(data[m][0], m, variant, seed) for m in dev}
         preds = {}
@@ -125,18 +190,17 @@ def evaluate(spec, seed=0, bootstrap_n=1000, variants=tuple(VARIANTS), label_set
                 pr = preds[m]
                 if len(pr) != len(gt) or not np.isin(pr, list("HADX")).all():
                     raise ValueError("predictor output does not match the frame axis")
-                g, p = pm.label_codes(list(gt)), pm.label_codes(list(pr))
-                s = _summary(pm.evaluate(g, p, bootstrap_n=0))
-                active = gt != "X"
-                s["pred_d_share"] = float((pr[active] == "D").mean())
-                s["gt_d_share"] = float((gt[active] == "D").mean())
+                g_seq, p_seq = scored_sequence(gt, pr, data[m][0].period)
+                s = _summary(pm.evaluate(pm.label_codes(list(g_seq)), pm.label_codes(list(p_seq)), bootstrap_n=0))
+                active = g_seq != "X"
+                s["pred_d_share"] = float((p_seq[active] == "D").mean())
+                s["gt_d_share"] = float((g_seq[active] == "D").mean())
                 per_match[m] = s
-                gts += [gt, np.array(["X"])]
-                prs += [pr, np.array(["X"])]
-            pooled = pm.evaluate(pm.label_codes(list(np.concatenate(gts))),
-                                 pm.label_codes(list(np.concatenate(prs))), bootstrap_n=bootstrap_n)
-            ps = _summary(pooled)
+                gts.append(g_seq)
+                prs.append(p_seq)
             gt_all, pr_all = np.concatenate(gts), np.concatenate(prs)
+            pooled = pm.evaluate(pm.label_codes(list(gt_all)), pm.label_codes(list(pr_all)), bootstrap_n=bootstrap_n)
+            ps = _summary(pooled)
             act = gt_all != "X"
             ps["pred_d_share"] = float((pr_all[act] == "D").mean())
             ps["gt_d_share"] = float((gt_all[act] == "D").mean())
@@ -144,14 +208,33 @@ def evaluate(spec, seed=0, bootstrap_n=1000, variants=tuple(VARIANTS), label_set
     return report
 
 
+PAIRED_MUST_MATCH = ("split_sha256", "seed", "dev", "variants", "degrade_defaults", "label_sets",
+                     "bootstrap_n", "scorer_sha256", "labels_sha256", "degrade_sha256", "inputs")
+
+
 def paired(report, reference, key="degraded/primary"):
-    """Per-match spellF1 differences (candidate - reference) on the same matches and variant."""
+    """Per-match spellF1 differences (candidate - reference) on identical matches and settings.
+
+    Refuses incompatible runs: the dev match sets must be identical and nonempty, and split,
+    seed, degradation, labels, bootstrap and scorer provenance must match exactly.
+    """
+    pa, pb = report.get("provenance"), reference.get("provenance")
+    if not pa or not pb:
+        raise ValueError("both runs need provenance")
+    for field in PAIRED_MUST_MATCH:
+        if pa.get(field) != pb.get(field):
+            raise ValueError(f"incompatible runs: {field} differs")
+    if key not in report["results"] or key not in reference["results"]:
+        raise ValueError("comparison key missing")
     a, b = report["results"][key]["per_match"], reference["results"][key]["per_match"]
-    diffs = {m: a[m]["spell_f1"] - b[m]["spell_f1"] for m in a if m in b}
+    if not a or set(a) != set(b):
+        raise ValueError("match sets differ or are empty")
+    diffs = {m: a[m]["spell_f1"] - b[m]["spell_f1"] for m in sorted(a)}
     return {"key": key, "diffs": diffs, "mean": float(np.mean(list(diffs.values()))),
             "n_positive": sum(d > 0 for d in diffs.values()), "n": len(diffs),
             "pooled_ci90_candidate": report["results"][key]["pooled"]["spell_ci90"],
-            "pooled_ci90_reference": reference["results"][key]["pooled"]["spell_ci90"]}
+            "pooled_ci90_reference": reference["results"][key]["pooled"]["spell_ci90"],
+            "note": "pooled CIs resample possessions within the dev set, not matches"}
 
 
 def write(report, path):
