@@ -1,6 +1,6 @@
 {
  "dev_only": true,
- "git_commit": "7e487cfca7e3b1d5a348ab141a1eec16b7893364",
+ "git_commit": "b44f454605d04ee2b7fccc5b21e0b770522c9ea9",
  "matches": [
   {
    "adapter_home_equals_matchinfo_home": true,
@@ -85,14 +85,14 @@
    },
    "switch_event_evidence": {
     "held_2s": {
-     "control_event_by_new_team": 188,
-     "duel_no_possession_change": 26,
-     "no_relevant_event": 34
+     "control_event_by_new_team": 56,
+     "duel_no_possession_change": 29,
+     "no_relevant_event": 163
     },
     "short_flipback": {
-     "control_event_by_new_team": 36,
-     "duel_no_possession_change": 30,
-     "no_relevant_event": 35
+     "control_event_by_new_team": 27,
+     "duel_no_possession_change": 24,
+     "no_relevant_event": 50
     }
    },
    "switch_flips_back_within_2s_share": 0.2563,
@@ -182,14 +182,14 @@
    },
    "switch_event_evidence": {
     "held_2s": {
-     "control_event_by_new_team": 157,
-     "duel_no_possession_change": 23,
-     "no_relevant_event": 27
+     "control_event_by_new_team": 96,
+     "duel_no_possession_change": 22,
+     "no_relevant_event": 89
     },
     "short_flipback": {
-     "control_event_by_new_team": 18,
-     "duel_no_possession_change": 15,
-     "no_relevant_event": 26
+     "control_event_by_new_team": 13,
+     "duel_no_possession_change": 13,
+     "no_relevant_event": 33
     }
    },
    "switch_flips_back_within_2s_share": 0.196,
@@ -279,14 +279,14 @@
    },
    "switch_event_evidence": {
     "held_2s": {
-     "control_event_by_new_team": 156,
-     "duel_no_possession_change": 26,
-     "no_relevant_event": 29
+     "control_event_by_new_team": 83,
+     "duel_no_possession_change": 31,
+     "no_relevant_event": 97
     },
     "short_flipback": {
-     "control_event_by_new_team": 19,
-     "duel_no_possession_change": 29,
-     "no_relevant_event": 26
+     "control_event_by_new_team": 16,
+     "duel_no_possession_change": 27,
+     "no_relevant_event": 31
     }
    },
    "switch_flips_back_within_2s_share": 0.2284,
@@ -376,14 +376,14 @@
    },
    "switch_event_evidence": {
     "held_2s": {
-     "control_event_by_new_team": 164,
-     "duel_no_possession_change": 20,
-     "no_relevant_event": 33
+     "control_event_by_new_team": 108,
+     "duel_no_possession_change": 21,
+     "no_relevant_event": 88
     },
     "short_flipback": {
-     "control_event_by_new_team": 16,
-     "duel_no_possession_change": 20,
-     "no_relevant_event": 14
+     "control_event_by_new_team": 12,
+     "duel_no_possession_change": 18,
+     "no_relevant_event": 20
     }
    },
    "switch_flips_back_within_2s_share": 0.1656,
@@ -473,14 +473,14 @@
    },
    "switch_event_evidence": {
     "held_2s": {
-     "control_event_by_new_team": 164,
-     "duel_no_possession_change": 15,
-     "no_relevant_event": 19
+     "control_event_by_new_team": 72,
+     "duel_no_possession_change": 20,
+     "no_relevant_event": 106
     },
     "short_flipback": {
-     "control_event_by_new_team": 13,
-     "duel_no_possession_change": 8,
-     "no_relevant_event": 24
+     "control_event_by_new_team": 9,
+     "duel_no_possession_change": 7,
+     "no_relevant_event": 29
     }
    },
    "switch_flips_back_within_2s_share": 0.1619,

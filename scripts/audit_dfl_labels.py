@@ -205,7 +205,11 @@ def audit_match(data, match):
                                  "signed_latency_s": summarise(lat)}
 
     # 5. Control-specific evidence at live switches: independent human event semantics.
-    ev_t = np.array([e[0] for e in events])
+    # Align the manual event clock per match by the median restart latency (status-based,
+    # independent of possession flags), then use a fixed window around each switch start.
+    offset = float(np.median(lat)) if lat else 0.0
+    out["event_clock_offset_s"] = round(offset, 2)
+    ev_t = np.array([e[0] for e in events]) + offset
     groups = {"short_flipback": Counter(), "held_2s": Counter()}
     for p in np.unique(tracking.period):
         if not p:
