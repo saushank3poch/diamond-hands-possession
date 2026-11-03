@@ -1,0 +1,291 @@
+{
+ "dev_only": true,
+ "matches": [
+  {
+   "adapter_home_equals_matchinfo_home": true,
+   "dead_between_possessions": 104,
+   "dead_frame_share": 0.517,
+   "dead_intervals": {
+    "mean": 27.36,
+    "median": 23.84,
+    "n": 107,
+    "p10": 5.38,
+    "p90": 49.25
+   },
+   "dead_same_team_both_sides_share": 0.2981,
+   "dead_to_alive_transitions": 105,
+   "frames": 141561,
+   "frames_used_for_agreement": 35970,
+   "live_switches": 394,
+   "match": "DFL-MAT-J03WN1",
+   "nearest_within_1p5m_agrees_with_flag": 0.8713,
+   "new_team_nearest_dist_at_switch_m": {
+    "mean": 0.64,
+    "median": 0.64,
+    "n": 394,
+    "p10": 0.15,
+    "p90": 1.08
+   },
+   "owner_during_dead": {
+    "A": 40610,
+    "H": 32574
+   },
+   "periods": {
+    "1": 69288,
+    "2": 72273
+   },
+   "possession_share_under_1s": 0.152,
+   "possession_share_under_2s": 0.342,
+   "possessions": {
+    "mean": 5.47,
+    "median": 3.12,
+    "n": 500,
+    "p10": 0.8,
+    "p90": 12.08
+   },
+   "possessions_per_5min": 26.49,
+   "raw_BallPossession": {
+    "1": 68995,
+    "2": 72566
+   },
+   "raw_BallStatus": {
+    "0": 73184,
+    "1": 68377
+   },
+   "restart_events": 104,
+   "restart_events_with_transition_within_3s_share": 0.8942,
+   "switch_flips_back_within_2s_share": 0.2563,
+   "switch_new_team_within_1p5m_share": 0.9772,
+   "unknown_share": 0.0
+  },
+  {
+   "adapter_home_equals_matchinfo_home": true,
+   "dead_between_possessions": 99,
+   "dead_frame_share": 0.4757,
+   "dead_intervals": {
+    "mean": 25.6,
+    "median": 19.12,
+    "n": 102,
+    "p10": 6.22,
+    "p90": 52.58
+   },
+   "dead_same_team_both_sides_share": 0.3434,
+   "dead_to_alive_transitions": 100,
+   "frames": 137214,
+   "frames_used_for_agreement": 37295,
+   "live_switches": 301,
+   "match": "DFL-MAT-J03WOH",
+   "nearest_within_1p5m_agrees_with_flag": 0.8931,
+   "new_team_nearest_dist_at_switch_m": {
+    "mean": 0.62,
+    "median": 0.59,
+    "n": 301,
+    "p10": 0.23,
+    "p90": 1.02
+   },
+   "owner_during_dead": {
+    "A": 34933,
+    "H": 30336
+   },
+   "periods": {
+    "1": 69424,
+    "2": 67790
+   },
+   "possession_share_under_1s": 0.1144,
+   "possession_share_under_2s": 0.2736,
+   "possessions": {
+    "mean": 7.16,
+    "median": 3.94,
+    "n": 402,
+    "p10": 0.88,
+    "p90": 18.54
+   },
+   "possessions_per_5min": 21.97,
+   "raw_BallPossession": {
+    "1": 69462,
+    "2": 67752
+   },
+   "raw_BallStatus": {
+    "0": 65269,
+    "1": 71945
+   },
+   "restart_events": 100,
+   "restart_events_with_transition_within_3s_share": 0.88,
+   "switch_flips_back_within_2s_share": 0.196,
+   "switch_new_team_within_1p5m_share": 0.9867,
+   "unknown_share": 0.0
+  },
+  {
+   "adapter_home_equals_matchinfo_home": true,
+   "dead_between_possessions": 95,
+   "dead_frame_share": 0.4429,
+   "dead_intervals": {
+    "mean": 26.7,
+    "median": 22.8,
+    "n": 97,
+    "p10": 5.55,
+    "p90": 55.38
+   },
+   "dead_same_team_both_sides_share": 0.3158,
+   "dead_to_alive_transitions": 95,
+   "frames": 146211,
+   "frames_used_for_agreement": 42993,
+   "live_switches": 324,
+   "match": "DFL-MAT-J03WPY",
+   "nearest_within_1p5m_agrees_with_flag": 0.9091,
+   "new_team_nearest_dist_at_switch_m": {
+    "mean": 0.68,
+    "median": 0.62,
+    "n": 324,
+    "p10": 0.24,
+    "p90": 1.15
+   },
+   "owner_during_dead": {
+    "A": 36749,
+    "H": 28002
+   },
+   "periods": {
+    "1": 69131,
+    "2": 77080
+   },
+   "possession_share_under_1s": 0.1354,
+   "possession_share_under_2s": 0.2945,
+   "possessions": {
+    "mean": 7.74,
+    "median": 3.84,
+    "n": 421,
+    "p10": 0.72,
+    "p90": 20.6
+   },
+   "possessions_per_5min": 21.6,
+   "raw_BallPossession": {
+    "1": 79194,
+    "2": 67017
+   },
+   "raw_BallStatus": {
+    "0": 64751,
+    "1": 81460
+   },
+   "restart_events": 97,
+   "restart_events_with_transition_within_3s_share": 0.8763,
+   "switch_flips_back_within_2s_share": 0.2284,
+   "switch_new_team_within_1p5m_share": 0.9599,
+   "unknown_share": 0.0
+  },
+  {
+   "adapter_home_equals_matchinfo_home": true,
+   "dead_between_possessions": 97,
+   "dead_frame_share": 0.4074,
+   "dead_intervals": {
+    "mean": 23.43,
+    "median": 19.6,
+    "n": 99,
+    "p10": 7.86,
+    "p90": 43.38
+   },
+   "dead_same_team_both_sides_share": 0.433,
+   "dead_to_alive_transitions": 97,
+   "frames": 142345,
+   "frames_used_for_agreement": 45465,
+   "live_switches": 302,
+   "match": "DFL-MAT-J03WQQ",
+   "nearest_within_1p5m_agrees_with_flag": 0.8997,
+   "new_team_nearest_dist_at_switch_m": {
+    "mean": 0.82,
+    "median": 0.72,
+    "n": 302,
+    "p10": 0.33,
+    "p90": 1.31
+   },
+   "owner_during_dead": {
+    "A": 26736,
+    "H": 31257
+   },
+   "periods": {
+    "1": 69204,
+    "2": 73141
+   },
+   "possession_share_under_1s": 0.0923,
+   "possession_share_under_2s": 0.2519,
+   "possessions": {
+    "mean": 8.41,
+    "median": 4.68,
+    "n": 401,
+    "p10": 1.08,
+    "p90": 21.28
+   },
+   "possessions_per_5min": 21.13,
+   "raw_BallPossession": {
+    "1": 68287,
+    "2": 74058
+   },
+   "raw_BallStatus": {
+    "0": 57993,
+    "1": 84352
+   },
+   "restart_events": 99,
+   "restart_events_with_transition_within_3s_share": 0.8788,
+   "switch_flips_back_within_2s_share": 0.1656,
+   "switch_new_team_within_1p5m_share": 0.9305,
+   "unknown_share": 0.0
+  },
+  {
+   "adapter_home_equals_matchinfo_home": true,
+   "dead_between_possessions": 90,
+   "dead_frame_share": 0.4189,
+   "dead_intervals": {
+    "mean": 26.74,
+    "median": 20.02,
+    "n": 92,
+    "p10": 7.88,
+    "p90": 48.08
+   },
+   "dead_same_team_both_sides_share": 0.2444,
+   "dead_to_alive_transitions": 90,
+   "frames": 146810,
+   "frames_used_for_agreement": 47734,
+   "live_switches": 278,
+   "match": "DFL-MAT-J03WR9",
+   "nearest_within_1p5m_agrees_with_flag": 0.9205,
+   "new_team_nearest_dist_at_switch_m": {
+    "mean": 0.62,
+    "median": 0.61,
+    "n": 278,
+    "p10": 0.22,
+    "p90": 1.09
+   },
+   "owner_during_dead": {
+    "A": 35298,
+    "H": 26196
+   },
+   "periods": {
+    "1": 68354,
+    "2": 78456
+   },
+   "possession_share_under_1s": 0.1108,
+   "possession_share_under_2s": 0.2541,
+   "possessions": {
+    "mean": 9.22,
+    "median": 4.24,
+    "n": 370,
+    "p10": 0.96,
+    "p90": 23.6
+   },
+   "possessions_per_5min": 18.9,
+   "raw_BallPossession": {
+    "1": 79435,
+    "2": 67375
+   },
+   "raw_BallStatus": {
+    "0": 61494,
+    "1": 85316
+   },
+   "restart_events": 92,
+   "restart_events_with_transition_within_3s_share": 0.9457,
+   "switch_flips_back_within_2s_share": 0.1619,
+   "switch_new_team_within_1p5m_share": 0.9856,
+   "unknown_share": 0.0
+  }
+ ],
+ "split_sha256": "e80729dc59678fbe26c3d636eef9bc99da7ad840fdbfc6397f3bce361399a26b"
+}
