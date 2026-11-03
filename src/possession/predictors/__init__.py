@@ -6,8 +6,9 @@ Interface: `make(spec)` returns an object with `fit(examples)` (examples are
 Predictors never import the evaluation or adapter packages.
 """
 from possession.predictors.baseline import NearestPlayer
+from possession.predictors.deadball import DeadBall
 
-REGISTRY = {"nearest_player": NearestPlayer}
+REGISTRY = {"nearest_player": NearestPlayer, "deadball": DeadBall}
 
 
 def make(spec):
