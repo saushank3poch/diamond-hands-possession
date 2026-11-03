@@ -1,0 +1,9 @@
+{
+  "seed": 0,
+  "features": {
+    "max_ball_gap_frames": 5,
+    "max_player_speed_mps": 12.0,
+    "max_ball_speed_mps": 60.0,
+    "exit_horizon_s": 0.2
+  }
+}

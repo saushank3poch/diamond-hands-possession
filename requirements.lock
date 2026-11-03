@@ -17,3 +17,5 @@ pytz==2026.6
 sortedcontainers==2.4.0
 tzdata==2026.6
 yarl==1.25.1
+
+pyarrow==26.0.0

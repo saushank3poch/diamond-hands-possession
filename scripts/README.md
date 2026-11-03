@@ -97,3 +97,9 @@ See [ADAPTERS.md](ADAPTERS.md) for units, period/frame mappings, missingness,
 attack direction, import boundaries, loader provenance and contained target usage.
 The synthetic suite needs the complete lock, including kloppy; no actual match
 records are used by these tests.
+
+## Feature cache
+
+FCB-10 adds tracking-only per-frame geometry/motion and a Parquet cache. See
+[FEATURES.md](FEATURES.md) for feature definitions, explicit missingness,
+assumptions, cache invalidation and the contained target runtime check.
