@@ -84,3 +84,63 @@ Paired per-match spellF1 difference vs smooth50, within each scenario (mean, and
 - **Observation only:** the dev ordering (smooth50 best on degraded) happens to match the organisers' published full-match ordering. Nothing was calibrated toward it.
 
 **Proxy labels (2 s)** are in the JSON for transparency and are not used for selection.
+
+---
+
+## E002: Dead-ball detector, FCB-11 (2026-11-03, commit a6f4c1c, run `run-524wnvyt`)
+
+**Hypothesis (written before the run):** fusing tracking-only dead-ball evidence into the smooth50 baseline raises spellF1 over smooth50 in all 4 dev scenarios. Concretely: D where the fused score says dead, and the nearest-player vote confined to live runs elsewhere. In each scenario the mean paired per-match difference should be positive, with a majority of matches positive.
+
+**Change:** `predictors/deadball.py`. A per-frame logistic model is trained in leave-one-match-out folds. It uses windowed signals in 4 groups:
+- **ball:** missing, time since seen, last-seen distance to a line or off the pitch, windowed ball speed;
+- **motion:** 1 s displacement team speeds;
+- **formation:** team spread, centroid separation, own-half shares, crowding around the last-seen ball;
+- **restart:** speed change between the past and future 3 s.
+
+Each signal is also averaged over centred 1, 4 and 12 s windows. Decoding:
+- P(dead) is smoothed over 1 s;
+- the threshold maximises dead-frame F1 on the *training* matches only;
+- the minimum run lengths are fixed a priori: dead 2 s, live 1 s.
+
+No Smart Tagging.
+
+**Command:** `make dev-eval CONFIG=configs/dev_deadball.yaml`, clean tree. It is paired against E001 smooth50; the provenance check passed. Output: `results/E002_dev_metrics.json`.
+
+**Pooled spellF1 [90% CI]** (primary labels). Δ = mean paired per-match difference vs smooth50, with the number of matches better:
+
+| | clean | degraded | short gaps | long gaps |
+|---|---|---|---|---|
+| smooth50 (E001) | 0.315 | 0.227 | 0.252 | 0.214 |
+| **deadball_all** | **0.432** [0.416, 0.448], Δ +0.117 (5/5) | **0.318** [0.306, 0.332], Δ +0.091 (5/5) | **0.358**, Δ +0.105 (5/5) | **0.297**, Δ +0.083 (5/5) |
+| only_ball | 0.427, +0.113 (5/5) | 0.307, +0.080 (5/5) | 0.353, +0.101 (5/5) | 0.291, +0.078 (5/5) |
+| no_ball | 0.360, +0.045 (5/5) | 0.273, +0.046 (5/5) | 0.311, +0.059 (5/5) | 0.259, +0.045 (5/5) |
+| only_motion | 0.334, +0.019 (4/5) | 0.255, +0.027 (5/5) | 0.286, +0.033 (4/5) | 0.241, +0.026 (5/5) |
+| no_motion | 0.428 | 0.315 | 0.357 | 0.292 |
+| no_formation | 0.429 | 0.315 | 0.356 | 0.297 |
+| no_restart | 0.437 | 0.316 | 0.355 | 0.300 |
+
+**deadball_all, degraded, other metrics:**
+
+| metric | deadball_all | smooth50 |
+|---|---|---|
+| alive/dead F1 | 0.952 | — |
+| D share (true 45.2%) | 45.5% | 1.6% |
+| macroF1 | 0.820 | 0.381 |
+| possessions (true 2,094) | 2,687 | 3,166 |
+| mean \|latency\| at τ = 25 | 10.3 frames | 12.5 frames |
+
+**Verdict: confirmed on dev**, with the caveats below. The improvement holds in every scenario, on every match, and the intervals do not overlap.
+
+**Ablation reading (honest):**
+- **The ball group carries the gain.** only_ball reaches 0.307 vs 0.318 for all groups on degraded.
+- **The other groups are unproven.** Dropping any one of motion, formation or restart changes spellF1 by ≤ 0.006, which is inside the intervals. Their combined contribution (all minus only_ball) is +0.005 to +0.011, also inside the interval. They stay in for now as cheap redundancy, but no gain is claimed for them.
+- **Without the ball group the detector still helps.** Motion, formation and restart alone give +0.045 to +0.059 (5/5 matches in every scenario). That is the robustness floor if target ball behaviour differs from the simulation.
+
+**Main risk: dependence on the simulator.**
+- The ball group's strength partly reflects two things: DFL tracking keeps the ball's position when it is off the pitch, and FCB-8's assumption that an off-pitch ball goes missing 90% of the time.
+- The target ATD's behaviour for dead or off-pitch balls is unpublished. If the target loses the ball far from the lines, or keeps tracking it during stoppages, the ball features transfer less well, and the no_ball floor matters more.
+- This cannot be resolved on dev. Label-free target diagnostics (FCB-19), such as predicted D share and stoppage count per half, will show whether the detector behaves plausibly on the target.
+
+**Other notes:**
+- **Windowed motion (FCB-11 finding):** per-frame speeds are swamped by FCB-8's per-frame position jitter (6.1 vs 6.2 m/s dead vs alive degraded); 1 s displacement speeds recover the contrast (1.1 vs 2.3). The motion group uses windowed speeds.
+- **Possession over-count remains:** 2,687 predicted vs 2,094 true on degraded. That is the next lever, the turnover rules (FCB-12).
