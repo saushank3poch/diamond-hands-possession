@@ -49,6 +49,10 @@ def _sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 
 
+def _share(mask, where):
+    return round(float(mask[where].mean()), 4) if where.any() else None
+
+
 def _markov_mask(rng, p_on, q_off):
     """Two-state chain: from visible, go missing with prob p_on[t]; from missing, recover with q_off."""
     n = len(p_on)
@@ -96,6 +100,7 @@ def degrade(tracking: Tracking, cfg: Config = Config()):
     crowd = np.sum(np.nan_to_num(d_ball, nan=np.inf) < cfg.crowd_radius_m, axis=1)
     already = tracking.ball_missing
     off_pitch = (np.abs(tracking.ball[:, 0]) > half_l) | (np.abs(tracking.ball[:, 1]) > half_w)
+    ball_on_pitch = ~off_pitch & ~already
     off_pitch &= ~already
     forced = off_pitch & (rng.random(n) < cfg.out_of_bounds_missing)
     target = 1.0 - cfg.ball_visible
@@ -189,10 +194,9 @@ def degrade(tracking: Tracking, cfg: Config = Config()):
         "ghost_bursts": ghosts,
         "tracklets_lost_pool_full": lost,
         "clean_mean_on_pitch": round(float(on_pitch), 2),
-        # Bias check: ball loss should be higher when the ball is crowded (>= 3 players within radius).
-        "ball_missing_share_crowded": round(float(ball_missing[in_period & (crowd >= 3)].mean()), 4)
-        if (in_period & (crowd >= 3)).any() else None,
-        "ball_missing_share_uncrowded": round(float(ball_missing[in_period & (crowd == 0)].mean()), 4)
-        if (in_period & (crowd == 0)).any() else None,
+        # Bias check, ball on the pitch only (off-pitch loss is forced and would confound it):
+        # ball loss should be higher when crowded (>= 3 players within radius) than when nobody is near.
+        "ball_missing_share_crowded_on_pitch": _share(ball_missing, in_period & ball_on_pitch & (crowd >= 3)),
+        "ball_missing_share_uncrowded_on_pitch": _share(ball_missing, in_period & ball_on_pitch & (crowd == 0)),
     }
     return degraded, stats
