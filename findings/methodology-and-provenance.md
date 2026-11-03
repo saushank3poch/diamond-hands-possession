@@ -20,6 +20,23 @@ On 2026-10-22/23, two commits (`c073f29`, `f8f2629`) tightened the rules. Here i
 
 Unchanged and still binding: [`RULES.md`](../RULES.md) "The data" says not to redistribute the data or publish derived data that would reconstruct it. The submission repository must be public, so `data/` stays ignored (`.gitignore` covers `data/*` except `data/README.md`).
 
+### 1a. Organiser clarification email (2026-11-03): stricter than `RULES.md`
+
+The email says it supersedes earlier documentation, earlier emails and individual answers. Where it is stricter than the public `RULES.md`, we follow the email. Assessment: `RESEARCH/FCB_ORGANISER_CLARIFICATION_2026_11_03.md` (workspace).
+
+| Clarification | Consequence for us |
+|---|---|
+| Training or retraining "MUST use only external data"; tuning "MUST" be on external data, never on the GT or the provided video | Every fitted quantity is fitted on other games: weights, normalisation statistics, thresholds, duration priors and pseudo-labels. On the provided match, the pipeline runs **frozen inference only**. The §1 pseudo-label row now applies to external games only: no target-match pseudo-labelling or self-training. |
+| Not allowed: checking output against the video | No visual sanity checks of target predictions, by agents or humans |
+| Not allowed: uploading the provided data to AI services | Same as hard rule 1 and §2 |
+| Allowed: automatic checks using only the provided data | Label-free target diagnostics stay allowed, local only (§2 decision) |
+| Allowed: Smart Tagging, video or other generated data as *input*, if the algorithm was not trained on the GT or the video | Smart Tagging is a permitted input. It stays excluded from the evaluated pipeline only because dev has no comparable tags to validate it (FCB-11 to FCB-13 design), not because of a rule. |
+| Allowed: any dataset we have rights to; check its licence | Metrica sample-data and DFL licences must be cited in the technical doc |
+
+**Audit of the current selected model (E002 `DeadBall`, `main` at `0a82b9c`):** `fit()` estimates its mean/sd, logistic weights and threshold on the training (dev) matches only. `predict()` takes tracking only and applies those frozen parameters. Its only per-match quantities are inference-time geometry, such as which half each team occupies. It is compliant.
+
+**Open question for the organisers** (raised by Codex): does using the published `DATA.md` missing-ball and object-count statistics to set the FCB-8 degradation count as calibration? Until it is answered, those degradation defaults stay as they are and are not retuned.
+
 ## 2. Third-party LLM clause: open question for the owner
 
 [`FAQ.md`](../FAQ.md) cites the Terms and Conditions: participants "shall not upload, disclose or otherwise make available to any third-party hosted or cloud-based LLM any videos, datasets, confidential information or other restricted materials … or any extracts thereof."
