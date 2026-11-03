@@ -1,0 +1,23 @@
+{
+  "seed": 0,
+  "bootstrap_n": 1000,
+  "compare_to": {
+    "path": "findings/results/E002_dev_metrics.json",
+    "report": "deadball_all"
+  },
+  "predictors": [
+    {
+      "label": "e002_reference",
+      "name": "deadball"
+    },
+    {
+      "label": "restart_geometry",
+      "name": "restart_owner"
+    },
+    {
+      "label": "restart_distance",
+      "name": "restart_owner",
+      "geometry": false
+    }
+  ]
+}

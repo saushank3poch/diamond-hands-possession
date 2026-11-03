@@ -10,7 +10,9 @@ from possession.predictors.deadball import DeadBall
 
 from possession.predictors.turnover import Turnover
 
-REGISTRY = {"nearest_player": NearestPlayer, "deadball": DeadBall, "turnover": Turnover}
+from possession.predictors.restart import RestartOwner
+
+REGISTRY = {"nearest_player": NearestPlayer, "deadball": DeadBall, "turnover": Turnover, "restart_owner": RestartOwner}
 
 
 def make(spec):

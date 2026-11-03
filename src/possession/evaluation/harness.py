@@ -20,6 +20,7 @@ import numpy as np
 from possession import split as split_mod
 from possession.adapters.dfl import load_dfl
 from possession.degrade import Config as DegradeConfig, degrade
+from possession.evaluation.restarts import restart_counts, summarize as summarize_restarts
 from possession.evaluation.labels import proxy_labels, reference_labels
 from possession.evaluation.references import References, load_dfl_references
 from possession.predictors import make
@@ -195,6 +196,7 @@ def evaluate(spec, seed=0, bootstrap_n=1000, variants=tuple(VARIANTS), label_set
                 active = g_seq != "X"
                 s["pred_d_share"] = float((p_seq[active] == "D").mean())
                 s["gt_d_share"] = float((g_seq[active] == "D").mean())
+                s["restart_owner"] = summarize_restarts(restart_counts(gt, pr, data[m][0].period))
                 per_match[m] = s
                 gts.append(g_seq)
                 prs.append(p_seq)
@@ -204,6 +206,9 @@ def evaluate(spec, seed=0, bootstrap_n=1000, variants=tuple(VARIANTS), label_set
             act = gt_all != "X"
             ps["pred_d_share"] = float((pr_all[act] == "D").mean())
             ps["gt_d_share"] = float((gt_all[act] == "D").mean())
+            counts = {field: sum(v["restart_owner"][field] for v in per_match.values())
+                      for field in ("n", "correct", "team_predictions", "pred_d", "pred_x")}
+            ps["restart_owner"] = summarize_restarts(counts)
             report["results"][f"{variant}/{label_set}"] = {"pooled": ps, "per_match": per_match}
     return report
 

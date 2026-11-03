@@ -186,3 +186,14 @@ Primary pooled spellF1 [90% possession-bootstrap interval]; mean paired per-matc
 **Lag ablation:** the 10-frame window confirms 9 frames (0.36 s) after sustained evidence begins; back-dating restores the recorded boundary to evidence onset. Synthetic tests establish the exact 4/9/19-frame delays for 5/10/20-frame windows. At default degradation, the delayed 0.4 s variant scores 0.318 versus 0.326 back-dated, with matched transition mean absolute latency 9.41 versus 9.15 frames (E002: 10.3). That observed latency covers matched H/A/D transitions and excludes unmatched ones; it is not an unbiased control-boundary error or proof of a gain. The two intervals overlap. All variants, including delayed output, remain offline because displacement evidence uses future samples.
 
 **Other default-degraded metrics:** the 0.4 s candidate has macroF1 0.828 and D share 44.25%; 0.2 s has macroF1 0.839 and the same D share. The dead detector and its training are unchanged. No target/holdout execution, no public-GT access. This completes the state-machine implementation and window-size experiment; it does not satisfy the empirical improvement hypothesis.
+
+
+## E004: Local restart-owner inference (prespecified, 2026-11-03)
+
+Hypothesis: local taker evidence with touchline geometry improves reference-restart frame accuracy and primary spellF1 versus selected E002 in all four dev scenarios, with positive paired spellF1 means, majority of matches positive and non-overlapping pooled 90% intervals. Compare full geometry and distance-only ablation; rerun unchanged E002 to add restart diagnostics. No target/holdout run; no FCB12 candidate adopted.
+
+Prespecified rule: anchor the ball nearest in time within +/-0.5s of each predicted live edge, clipped to the current period and live-run end. Require >=3 observed ball frames within1m of anchor and both teams visible. Choose the team with lower median nearest-player cost, within3m of anchor, >=0.75m cost advantage and >=70% frame votes. Near a touchline (within1.5m, excluding5m at each goal line), add0.75 times the player's distance inside that line to discourage selecting a receiver over an on-line thrower. This is an assumed geometry cue, not a known restart type. Weak/ambiguous evidence falls back to E002. Override only the initial baseline-owner spell, capped at1s. D and later owner votes remain unchanged.
+
+Separate diagnostic: exact reference D->H/A edges inside a period, excluding GT-X gaps and period heads. Report correct/total, H/A prediction coverage, conditional H/A accuracy and D/X misses. These oracle-time labels are evaluator-only and never reset or seed a predictor. The diagnostic conflates restart detection timing and ownership; it is not conditional accuracy given correct boundaries.
+
+Command: `make dev-eval CONFIG=configs/dev_restart.yaml`. Results pending. E002 stays selected unless the full criterion passes.
