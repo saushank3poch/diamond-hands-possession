@@ -48,7 +48,7 @@ Next step: once the dev set exists, run the same four variants on it and log the
 - Official scorer, pooled over matches, with the 1000-draw bootstrap (90% interval).
 - Primary labels are the raw DFL flags. The 2 s proxy is shown for transparency only.
 - Command: `make dev-eval CONFIG=configs/dev_baseline.yaml`.
-- Full output: `runs/E001_dev_metrics.json`; provenance: `runs/E001_run.json`.
+- Full output: `results/E001_dev_metrics.json`; provenance: `results/E001_run.json`.
 
 Primary labels, pooled spellF1 [90% CI]:
 
