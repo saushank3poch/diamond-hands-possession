@@ -62,3 +62,12 @@ __pycache__/
 venv/
 env/
 .DS_Store
+
+# Local research runs, external sources and generated target artefacts.
+/runs/
+/external/
+/artifacts/
+/submissions/
+*.parquet
+*.npz
+*.npy

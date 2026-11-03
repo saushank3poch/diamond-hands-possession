@@ -1,0 +1,7 @@
+# Python 3.14; pinned versions from the existing evaluation environment.
+# The scaffold and make test need only Python's standard library.
+# This lock covers the official scorer; optional notebook/ATD packages excluded.
+numpy==2.5.4
+pandas==3.1.0
+python-dateutil==4.0.0
+tzdata==2026.6
