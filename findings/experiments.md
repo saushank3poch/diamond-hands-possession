@@ -166,4 +166,23 @@ Evidence: observed ball within 2.5 m of the nearest player, at least 0.5 m advan
 
 Confirmation lag for continuous evidence is (N-1)/25: 0.16/0.36/0.76 s for 5/10/20 frames. Back-dating removes this output delay relative to evidence onset, not relative to unknown true control. Motion uses future samples, so all variants remain offline. Official transition latency and synthetic onset/confirmation tests measure complementary effects.
 
-Command: `make dev-eval CONFIG=configs/dev_turnover.yaml`. Results pending. E002 remains the selected baseline until evidence supports adoption.
+Command: `make dev-eval CONFIG=configs/dev_turnover.yaml`. Producer `deb0c1627667ae97770a12ee5092a903cc8e99cd`, clean tree, `run-4la912mx`. Full metrics: `results/E003_dev_metrics.json`; provenance: `results/E003_run.json`.
+
+### E003 results and adoption decision
+
+Primary pooled spellF1 [90% possession-bootstrap interval]; mean paired per-match delta vs E002 and number positive. These intervals are conditional on the five dev matches, not cross-match generalisation intervals.
+
+| candidate | clean | degraded | short gaps | long gaps |
+|---|---|---|---|---|
+| turnover_04 | 0.481 [0.460, 0.501], +0.051 (5/5) | 0.326 [0.307, 0.346], -0.005 (2/5) | 0.301 [0.282, 0.321], -0.055 (1/5) | 0.338 [0.318, 0.358], +0.016 (4/5) |
+| turnover_02 | 0.540 [0.520, 0.559], +0.110 (5/5) | 0.385 [0.366, 0.405], +0.052 (4/5) | 0.374 [0.352, 0.394], +0.017 (3/5) | 0.391 [0.370, 0.411], +0.067 (5/5) |
+| turnover_08 | 0.398 [0.377, 0.419], -0.032 (1/5) | 0.255 [0.237, 0.274], -0.076 (0/5) | 0.223 [0.206, 0.242], -0.134 (0/5) | 0.272 [0.253, 0.291], -0.051 (0/5) |
+| turnover_04_delayed | 0.470 [0.449, 0.490], +0.040 (5/5) | 0.318 [0.299, 0.338], -0.014 (2/5) | 0.294 [0.275, 0.314], -0.062 (0/5) | 0.332 [0.312, 0.351], +0.010 (4/5) |
+
+**Verdict: the prespecified default hypothesis is rejected. Do not adopt this ownership replacement; E002 deadball_all remains selected.** The default 0.4 s candidate regresses on default and short-gap degradation. The 0.2 s sensitivity candidate improves the paired mean in every scenario, but its short-gap interval overlaps E002 (3/5 matches positive), so it does not meet the all-scenario criterion either. Retain it as an experimental candidate, not a validated replacement. No further thresholds were searched after this run. The 2 s proxy was not used to choose a window.
+
+**Why this is not simply a fragmentation win:** default degradation yields only 803 predicted spells with 0.4 s (994 with 0.2 s), versus 2,094 references and E002's 2,578. Reducing excessive flips also suppresses real changes or fails to establish ownership. Counts alone do not establish better possession accuracy. Requiring continuous motion support in noisy, fragmented tracks is restrictive; this is a plausible mechanism, not a measured causal attribution. Initial-owner inference is also changed and remains provisional until FCB-13.
+
+**Lag ablation:** the 10-frame window confirms 9 frames (0.36 s) after sustained evidence begins; back-dating restores the recorded boundary to evidence onset. Synthetic tests establish the exact 4/9/19-frame delays for 5/10/20-frame windows. At default degradation, the delayed 0.4 s variant scores 0.318 versus 0.326 back-dated, with matched transition mean absolute latency 9.41 versus 9.15 frames (E002: 10.3). That observed latency covers matched H/A/D transitions and excludes unmatched ones; it is not an unbiased control-boundary error or proof of a gain. The two intervals overlap. All variants, including delayed output, remain offline because displacement evidence uses future samples.
+
+**Other default-degraded metrics:** the 0.4 s candidate has macroF1 0.828 and D share 44.25%; 0.2 s has macroF1 0.839 and the same D share. The dead detector and its training are unchanged. No target/holdout execution, no public-GT access. This completes the state-machine implementation and window-size experiment; it does not satisfy the empirical improvement hypothesis.
