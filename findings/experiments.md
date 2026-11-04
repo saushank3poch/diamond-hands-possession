@@ -225,19 +225,14 @@ On default degradation the full rule gives 255/487 exact-edge correct (52.36%) v
 
 The dead detector, model training and labels are unchanged. All experiments are dev-only; no target/holdout/public-GT processing. FCB13 implementation and separate restart evaluation are complete, but the empirical adoption criterion is not met. Keep the candidate experimental.
 
-## A005: X policy, FCB-14 (analysis, no experiment run; 2026-11-04)
+## A005: X policy, FCB-14 (scorer analysis; revised 2026-11-04 after review)
 
-**Question:** can a deliberate X policy raise spellF1 over E002?
+**What holds:** the official scorer computes spellF1 and every temporal metric on `fill_abstentions(pred)`. That function forward-fills X inside each graded run and back-fills only the run head. So an X scores **the same as the label it carries**, and an X that opens a live run after D scores as D. `tests/test_x_policy.py` pins this on synthetic sequences.
 
-**Answer: no, by construction of the official scorer.** `evaluation/possession_metrics.py` scores every temporal metric, spellF1 included, on `fill_abstentions(pred)`. That function forward-fills X inside each graded run and back-fills only the run head. So for spellF1:
+**Withdrawn (review `RESEARCH/FCB_14_X_POLICY_REVIEW_2026_11_04.md`):** the first version said no X policy could raise spellF1 over E002, that X had "no headroom", and that it affected "only frame metrics". All three are wrong.
+- Replacing a wrong label with X *can* raise spellF1 relative to the original prediction. Truth `HHHHHH`, prediction `HHAAHH` scores 0.1; `HHXXHH` scores 1.0.
+- macroF1 is the first tie-breaker (`CHALLENGE.md`). X can raise it when it replaces wrong labels, because it removes false positives.
+- X can also harm both metrics, by erasing a real short possession.
 
-1. An X is identical to writing the label it carries. Any X policy equals some explicit H/A/D policy, so it cannot beat the best label policy.
-2. An X that opens a live run after D is scored as D. X cannot say "owner unknown yet"; it acts as a later dead→live release.
+Regression cases for both directions are in `tests/test_x_policy.py`. The correct statement is narrower: for spellF1, any X rewrite has an equivalent carried-label rewrite. Whether a given rewrite helps E002 is an empirical question, tested in E005.
 
-Both are pinned by `tests/test_x_policy.py` (synthetic sequences only): on 20 random sequences with 30% X, spellF1 equals that of the carried-label version exactly, and an X head after D scores the same as the late release.
-
-**Consequences:**
-- X changes only the frame metrics (macroF1, accuracy), where it always counts as a miss. Our objective is spellF1, so X has no headroom to offer there. The trade-off for macroF1 is only relevant if the judges weight it.
-- **One E002 behaviour this exposes:** a decoded live run with no owner vote at all is output as X. After a dead run it is therefore scored as D for its whole length. Writing an evidence-based owner guess there instead might rescue some spells. That is a candidate hypothesis; its size (how many such runs occur on dev) is not yet measured, and it must be prespecified before any run.
-
-**Verdict:** FCB-14 as "X policy" is closed with no model change. E002 remains selected.

@@ -11,8 +11,10 @@ from possession.predictors.deadball import DeadBall
 from possession.predictors.turnover import Turnover
 
 from possession.predictors.restart import RestartOwner
+from possession.predictors.xpolicy import ShortSpellX
 
-REGISTRY = {"nearest_player": NearestPlayer, "deadball": DeadBall, "turnover": Turnover, "restart_owner": RestartOwner}
+REGISTRY = {"nearest_player": NearestPlayer, "deadball": DeadBall, "turnover": Turnover, "restart_owner": RestartOwner,
+            "short_spell_x": ShortSpellX}
 
 
 def make(spec):

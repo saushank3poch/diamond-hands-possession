@@ -33,7 +33,7 @@ The email says it supersedes earlier documentation, earlier emails and individua
 | Allowed: Smart Tagging, video or other generated data as *input*, if the algorithm was not trained on the GT or the video | Smart Tagging is a permitted input. It stays excluded from the evaluated pipeline only because dev has no comparable tags to validate it (FCB-11 to FCB-13 design), not because of a rule. |
 | Allowed: any dataset we have rights to; check its licence | Metrica sample-data and DFL licences must be cited in the technical doc |
 
-**Audit of the current selected model (E002 `DeadBall`, `main` at `0a82b9c`):** `fit()` estimates its mean/sd, logistic weights and threshold on the training (dev) matches only. `predict()` takes tracking only and applies those frozen parameters. Its only per-match quantities are inference-time geometry, such as which half each team occupies. It is compliant.
+**Audit of the current selected model (E002 `DeadBall`, `main` at `0a82b9c`):** `fit()` estimates its mean/sd, logistic weights and threshold on the training (dev) matches only. `predict()` takes tracking only and applies those frozen parameters. Its only per-match quantities are inference-time geometry, such as which half each team occupies. It is consistent with the external-only training and frozen-inference requirement. This statement does not cover the separate open question below about the FCB-8 degradation defaults, which remains unresolved.
 
 **Open question for the organisers** (raised by Codex): does using the published `DATA.md` missing-ball and object-count statistics to set the FCB-8 degradation count as calibration? Until it is answered, those degradation defaults stay as they are and are not retuned.
 
