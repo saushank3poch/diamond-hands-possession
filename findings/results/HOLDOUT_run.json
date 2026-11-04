@@ -1,0 +1,14 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "scripts/pipeline.py",
+    "holdout-eval"
+  ],
+  "config_sha256": "cc8bbf49060c97c46f18f3b1c70dfe00630d947eff24ccd1b61521c5f1c6087f",
+  "git_commit": "66da3d6ea91a2d4f1c5a4b7272fd6325c63dc631",
+  "lock_sha256": "db73686896c3bc78cad69dca9cab1728f7203a40284297f6df21d98ae02c9fa5",
+  "mode": "dev",
+  "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "seed": 0,
+  "worktree_dirty": false
+}

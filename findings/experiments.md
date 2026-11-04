@@ -338,3 +338,23 @@ The E005 reference reproduced its earlier metrics exactly. The offset re-centres
   - competing reservations, where one wins.
 
   172 tests OK.
+
+## H001: One-time holdout evaluation of `freeze-e005` (2026-11-04; tag `freeze-e005` = 66da3d6, run `run-0exz6gbj`)
+
+Opened exactly once through `make holdout-eval`; the reservation ended `completed`, and the run was clean (`worktree_dirty: false`). Training used the 5 dev matches; the holdout was DFL-MAT-J03WMX and DFL-MAT-J03WOY. These results are reported as they came out, with no re-selection (D5).
+
+Primary labels; pooled spellF1 [90% CI, resampling possessions; only 2 matches, so not a cross-match interval]:
+
+| scenario | holdout spellF1 | per match (WMX / WOY) | dev CV (E005) | macroF1 | spells pred / true | D share pred / true |
+|---|---|---|---|---|---|---|
+| clean | .449 [.421, .478] | .452 / .447 | .466 [.448, .483] | .868 | 664 / 967 | .433 / .440 |
+| **degraded (headline)** | **.359 [.334, .385]** | .376 / .340 | .389 [.373, .406] | .823 | 719 / 967 | .426 / .440 |
+| short gaps | .395 [.370, .420] | .400 / .389 | .405 [.389, .421] | .836 | 743 / 967 | .431 / .440 |
+| long gaps | .349 [.325, .374] | .347 / .352 | .373 [.357, .388] | .814 | 712 / 967 | .423 / .440 |
+
+**Reading:**
+- The headline degraded holdout score is 0.030 below dev CV, and the intervals overlap. That is consistent with modest optimism from dev selection, but two matches cannot separate it from match-to-match variation.
+- The ordering across scenarios matches dev.
+- Possessions are undercounted more on holdout (74% of true) than on dev (88%). This is the clearest remaining weakness: real short possessions are being merged.
+- The D share is close to truth.
+- Target (Barça–Athletic) performance remains unmeasured. The organiser eligibility question on the degradation statistics is still open.
