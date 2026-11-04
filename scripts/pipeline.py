@@ -24,28 +24,22 @@ seed = int(os.environ["POSSESSION_SEED"])
 seed_generators(seed)
 
 if args.stage == "submission":
-    # Runs only inside scripts/run_target_local.sh (stdout/stderr discarded; pass/fail only).
+    # Runs only inside scripts/run_target_local.sh (stdout/stderr captured to local files; pass/fail only).
     import signal  # noqa: E402
     import subprocess  # noqa: E402
     signal.alarm(600)  # whole pipeline must finish in < 10 min
     from possession.adapters.atd import load_target  # noqa: E402
     from possession.evaluation import harness  # noqa: E402
     from possession import submission  # noqa: E402
-    run_dir = Path(os.environ["POSSESSION_RUN_DIR"])
-    spec, variant, train_seed = submission.recipe()
-    if train_seed != seed:
-        raise SystemExit("run seed differs from the frozen recipe")
-    model, dev = submission.train(spec, variant, train_seed, harness.load_match, harness.variant_input,
-                                  harness.gt_labels)
-    labels = submission.predict_target(model, load_target())
-    out = run_dir / "submission.csv"
-    digest = submission.write_csv(out, labels)
-    check = subprocess.run([sys.executable, "evaluation/validate_submission.py", str(out), "--rows",
+
+    def validate(path):
+        r = subprocess.run([sys.executable, "evaluation/validate_submission.py", str(path), "--rows",
                             str(submission.N_FRAMES)], capture_output=True)
-    (run_dir / "validate.log").write_bytes(check.stdout + check.stderr)
-    (run_dir / "submission.json").write_text(json.dumps(
-        {"sha256": digest, "spec": spec, "variant": variant, "train": dev, "validator_exit": check.returncode}) + "\n")
-    sys.exit(0 if check.returncode == 0 else 3)
+        return r.returncode, r.stdout + r.stderr
+
+    code = submission.build(Path(os.environ["POSSESSION_RUN_DIR"]), seed, harness.load_match,
+                            harness.variant_input, harness.gt_labels, load_target, validate)
+    sys.exit(0 if code == 0 else 3)
 
 from possession.evaluation import harness  # noqa: E402
 

@@ -17,17 +17,89 @@ from possession import submission
 from test_harness_eval import Spy, toy_refs, toy_tracking
 
 
+import json as _json
+import shutil
+
+
+def frozen_manifest():
+    return _json.loads((ROOT / "configs/freeze.json").read_text())
+
+
 class RecipeTests(unittest.TestCase):
     def test_reads_frozen_recipe(self):
-        spec, variant, seed = submission.recipe()
+        spec, variant, seed, dev = submission.recipe()
         self.assertEqual((spec, variant, seed), ({"name": "short_spell_x", "mode": "carry"}, "degraded", 0))
+        self.assertEqual(dev, list(submission.split_mod.load()["dev"]))
 
     def test_rejects_non_frozen_recipe(self):
-        for t in ({"decided_before_holdout": False, "labels": "primary", "seed": 0, "input_variant": "degraded"},
-                  {"decided_before_holdout": True, "labels": "proxy_2s", "seed": 0, "input_variant": "degraded"},
-                  {"decided_before_holdout": True, "labels": "primary", "seed": 0, "input_variant": "clean"}):
+        base = frozen_manifest()
+        bad = []
+        for key, value in (("decided_before_holdout", False), ("labels", "proxy_2s"), ("seed", 1),
+                           ("input_variant", "degraded_long_gaps (alt)"), ("input_variant", "clean")):
+            m = _json.loads(_json.dumps(base)); m["target_training"][key] = value; bad.append(m)
+        m = _json.loads(_json.dumps(base)); m["predictor"] = {"name": "nearest_player"}; bad.append(m)
+        m = _json.loads(_json.dumps(base)); m["split_sha256"] = "0" * 64; bad.append(m)
+        for m in bad:
             with self.assertRaises(ValueError):
-                submission.recipe({"predictor": {}, "target_training": t})
+                submission.recipe(m)
+
+
+class FreezeBindingTests(unittest.TestCase):
+    """verify_freeze against a temporary copy of the repo; the git side is the real freeze tag."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        rels = list(submission.FROZEN_FILES) + list(submission.FROZEN_MODULES)
+        for d in submission.FROZEN_DIRS:
+            rels += [str(p.relative_to(ROOT)) for p in (ROOT / d).rglob("*.py")]
+        for rel in rels:
+            (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / rel, self.root / rel)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def verify(self):
+        return submission.verify_freeze(root=self.root)
+
+    def test_current_tree_matches_freeze(self):
+        ident = self.verify()
+        self.assertEqual(ident["tag"], "freeze-e005")
+
+    def test_refuses_manifest_selecting_another_model(self):
+        p = self.root / "configs/freeze.json"
+        m = _json.loads(p.read_text()); m["predictor"] = {"name": "nearest_player"}
+        p.write_text(_json.dumps(m))
+        with self.assertRaises(ValueError):
+            self.verify()
+
+    def test_refuses_model_code_lock_or_split_drift(self):
+        for rel in ("src/possession/predictors/xpolicy.py", "requirements.lock", "configs/split.yaml",
+                    "src/possession/degrade.py"):
+            with self.subTest(rel=rel):
+                p = self.root / rel
+                orig = p.read_bytes()
+                p.write_bytes(orig + b"\n# drift\n")
+                with self.assertRaises(ValueError):
+                    self.verify()
+                p.write_bytes(orig)
+
+    def test_refuses_extra_predictor_file(self):
+        (self.root / "src/possession/predictors/sneaky.py").write_text("x = 1\n")
+        with self.assertRaises(ValueError):
+            self.verify()
+
+    def test_build_drift_or_bad_recipe_stops_before_any_loader(self):
+        calls = []
+        loader = lambda *a, **k: calls.append(a) or 1 / 0
+        for patcher in (patch.object(submission, "verify_freeze", side_effect=ValueError("drift")),
+                        patch.object(submission, "recipe", side_effect=ValueError("recipe"))):
+            with patcher, self.assertRaises(ValueError):
+                submission.build(self.root, 0, loader, loader, loader, loader, loader)
+        with self.assertRaises(ValueError):  # seed mismatch also stops first
+            submission.build(self.root, 1, loader, loader, loader, loader, loader)
+        self.assertEqual(calls, [])
 
 
 class TrainTests(unittest.TestCase):
@@ -40,7 +112,7 @@ class TrainTests(unittest.TestCase):
         with patch.object(submission.split_mod, "load", return_value={"dev": dev, "holdout": hold}), \
              patch.dict(submission.make.__globals__["REGISTRY"], {"spy": Spy}):
             model, used = submission.train(
-                {"name": "spy"}, "degraded", 0,
+                {"name": "spy"}, "degraded", 0, dev,
                 load_match=lambda m, s: (seen.append(m), data[m])[1],
                 variant_input=lambda t, m, v, s: (seen.append((m, v, s)), t)[1],
                 gt_labels=lambda r, t, ls: np.where(t.period > 0, "H", "X"))
@@ -48,6 +120,11 @@ class TrainTests(unittest.TestCase):
         self.assertNotIn("Z", seen)
         self.assertEqual([x for x in seen if isinstance(x, tuple)], [("A", "degraded", 0), ("B", "degraded", 0)])
         self.assertEqual(len([e for e in Spy.log if e[0] == "fit"]), 1)
+
+    def test_refuses_dev_list_other_than_frozen(self):
+        with patch.object(submission.split_mod, "load", return_value={"dev": ["A", "B"], "holdout": ["Z"]}):
+            with self.assertRaises(ValueError):
+                submission.train({"name": "spy"}, "degraded", 0, ["A", "Z"], lambda *a: 1 / 0, None, None)
 
 
 class OutputTests(unittest.TestCase):
