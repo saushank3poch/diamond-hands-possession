@@ -224,3 +224,20 @@ On default degradation the full rule gives 255/487 exact-edge correct (52.36%) v
 **Fragmentation risk:** default-degraded predicted spells rise from2578 to2599, while truth has2094. The one-second correction can revert to the previous baseline owner at its cap, creating a synthetic switch; that is a plausible cost of this design, not a measured causal attribution for every extra spell. Do not change the cap or rerun a search based on this result in E004.
 
 The dead detector, model training and labels are unchanged. All experiments are dev-only; no target/holdout/public-GT processing. FCB13 implementation and separate restart evaluation are complete, but the empirical adoption criterion is not met. Keep the candidate experimental.
+
+## A005: X policy, FCB-14 (analysis, no experiment run; 2026-11-04)
+
+**Question:** can a deliberate X policy raise spellF1 over E002?
+
+**Answer: no, by construction of the official scorer.** `evaluation/possession_metrics.py` scores every temporal metric, spellF1 included, on `fill_abstentions(pred)`. That function forward-fills X inside each graded run and back-fills only the run head. So for spellF1:
+
+1. An X is identical to writing the label it carries. Any X policy equals some explicit H/A/D policy, so it cannot beat the best label policy.
+2. An X that opens a live run after D is scored as D. X cannot say "owner unknown yet"; it acts as a later dead→live release.
+
+Both are pinned by `tests/test_x_policy.py` (synthetic sequences only): on 20 random sequences with 30% X, spellF1 equals that of the carried-label version exactly, and an X head after D scores the same as the late release.
+
+**Consequences:**
+- X changes only the frame metrics (macroF1, accuracy), where it always counts as a miss. Our objective is spellF1, so X has no headroom to offer there. The trade-off for macroF1 is only relevant if the judges weight it.
+- **One E002 behaviour this exposes:** a decoded live run with no owner vote at all is output as X. After a dead run it is therefore scored as D for its whole length. Writing an evidence-based owner guess there instead might rescue some spells. That is a candidate hypothesis; its size (how many such runs occur on dev) is not yet measured, and it must be prespecified before any run.
+
+**Verdict:** FCB-14 as "X policy" is closed with no model change. E002 remains selected.
