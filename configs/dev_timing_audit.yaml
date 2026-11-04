@@ -1,0 +1,15 @@
+{
+  "seed": 0,
+  "bootstrap_n": 1000,
+  "compare_to": {
+    "path": "findings/results/E005_dev_metrics.json",
+    "report": "short_spell_carry"
+  },
+  "predictors": [
+    {
+      "label": "short_spell_carry",
+      "name": "short_spell_x",
+      "mode": "carry"
+    }
+  ]
+}
