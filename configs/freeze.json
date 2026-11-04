@@ -1,0 +1,28 @@
+{
+  "tag": "freeze-e005",
+  "selected": "E005 short_spell_carry",
+  "predictor": {"name": "short_spell_x", "mode": "carry"},
+  "requirements_lock_sha256": "db73686896c3bc78cad69dca9cab1728f7203a40284297f6df21d98ae02c9fa5",
+  "split_sha256_file": "configs/split.yaml",
+  "dev_evidence": "findings/results/E005_dev_metrics.json (report short_spell_carry)",
+  "components": {
+    "included_evaluated_in_dev_cv": [
+      "FCB-10 tracking features as used by DeadBall (windowed motion computed inside the predictor)",
+      "FCB-11 DeadBall dead-ball detector: all feature groups (ball, motion, formation, restart), logistic fusion fitted on training matches, training-only threshold, min dead 2 s / live 1 s",
+      "Live-run owner: nearest-player majority vote (window 50) confined to each live run, carried within the run; X only for a live run with no vote",
+      "FCB-14 E005 short-spell carry: non-first owner spells < 1 s that disagree with the carried owner are overwritten with it"
+    ],
+    "explicitly_excluded": [
+      "FCB-12 Turnover confirmation state machine (E003, not adopted)",
+      "FCB-13 RestartOwner rule (E004, not adopted)",
+      "E005 X-mode variant (same spellF1 on dev, lower macroF1)",
+      "E006 EdgeOffset (rejected)",
+      "Smart Tagging inputs (no comparable dev tags to validate)",
+      "Optional FCB-15/16/17 (O1-O3): not built",
+      "Any target-match training, pseudo-labelling or calibration (organiser clarification 2026-11-03)"
+    ]
+  },
+  "open_questions": [
+    "Organiser eligibility of using published DATA.md input statistics to set FCB-8 degradation rates (unresolved)"
+  ]
+}

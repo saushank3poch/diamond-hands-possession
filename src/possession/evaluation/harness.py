@@ -88,14 +88,17 @@ def _files(match):
     return one("DFL_02_01_matchinformation"), one("DFL_04_03_positions_raw_observed")
 
 
-def load_match(match, split):
+def load_match(match, split, holdout=False):
     """(Tracking, References) for a dev match, cached under ignored runs/cache.
 
     The cache key binds the source files (manifest SHA-256, size, mtime), the parsing code,
     the dependency lock and a schema version. On a miss the source bytes are verified against
     the checksum manifest before parsing. Tracking/reference alignment is checked on every load.
     """
-    if match not in split["dev"] or match in split["holdout"]:
+    if holdout:
+        if match not in split["holdout"] or match in split["dev"]:
+            raise ValueError("holdout=True accepts holdout matches only")
+    elif match not in split["dev"] or match in split["holdout"]:
         raise ValueError("only dev matches may be evaluated here")
     files = _files(match)
     identity = cache_identity(match, files)
@@ -162,6 +165,39 @@ def _summary(result):
     }
 
 
+def _score_variant(report, variant, matches, data, preds, label_sets, bootstrap_n):
+    """Score one input variant's predictions per match and pooled (shared by dev and holdout)."""
+    for label_set in label_sets:
+        per_match, gts, prs, timing = {}, [], [], {}
+        for m in matches:
+            gt = gt_labels(data[m][1], data[m][0], label_set)
+            pr = preds[m]
+            if len(pr) != len(gt) or not np.isin(pr, list("HADX")).all():
+                raise ValueError("predictor output does not match the frame axis")
+            g_seq, p_seq = scored_sequence(gt, pr, data[m][0].period)
+            s = _summary(pm.evaluate(pm.label_codes(list(g_seq)), pm.label_codes(list(p_seq)), bootstrap_n=0))
+            active = g_seq != "X"
+            s["pred_d_share"] = float((p_seq[active] == "D").mean())
+            s["gt_d_share"] = float((g_seq[active] == "D").mean())
+            s["restart_owner"] = summarize_restarts(restart_counts(gt, pr, data[m][0].period))
+            timing[m] = edge_timing(gt, pr, data[m][0].period)
+            s["edge_timing"] = summarize_timing([timing[m]])
+            per_match[m] = s
+            gts.append(g_seq)
+            prs.append(p_seq)
+        gt_all, pr_all = np.concatenate(gts), np.concatenate(prs)
+        pooled = pm.evaluate(pm.label_codes(list(gt_all)), pm.label_codes(list(pr_all)), bootstrap_n=bootstrap_n)
+        ps = _summary(pooled)
+        act = gt_all != "X"
+        ps["pred_d_share"] = float((pr_all[act] == "D").mean())
+        ps["gt_d_share"] = float((gt_all[act] == "D").mean())
+        counts = {field: sum(v["restart_owner"][field] for v in per_match.values())
+                  for field in ("n", "correct", "team_predictions", "pred_d", "pred_x")}
+        ps["restart_owner"] = summarize_restarts(counts)
+        ps["edge_timing"] = summarize_timing([timing[m] for m in matches])
+        report["results"][f"{variant}/{label_set}"] = {"pooled": ps, "per_match": per_match}
+
+
 def evaluate(spec, seed=0, bootstrap_n=1000, variants=tuple(VARIANTS), label_sets=LABEL_SETS):
     split = split_mod.load()
     dev = list(split["dev"])
@@ -185,35 +221,41 @@ def evaluate(spec, seed=0, bootstrap_n=1000, variants=tuple(VARIANTS), label_set
             # Training examples: other dev matches only, primary labels, same input variant.
             predictor.fit([(inputs[m], gt_labels(data[m][1], data[m][0], "primary")) for m in fold["train"]])
             preds[held] = np.asarray(predictor.predict(inputs[held]))
-        for label_set in label_sets:
-            per_match, gts, prs, timing = {}, [], [], {}
-            for m in dev:
-                gt = gt_labels(data[m][1], data[m][0], label_set)
-                pr = preds[m]
-                if len(pr) != len(gt) or not np.isin(pr, list("HADX")).all():
-                    raise ValueError("predictor output does not match the frame axis")
-                g_seq, p_seq = scored_sequence(gt, pr, data[m][0].period)
-                s = _summary(pm.evaluate(pm.label_codes(list(g_seq)), pm.label_codes(list(p_seq)), bootstrap_n=0))
-                active = g_seq != "X"
-                s["pred_d_share"] = float((p_seq[active] == "D").mean())
-                s["gt_d_share"] = float((g_seq[active] == "D").mean())
-                s["restart_owner"] = summarize_restarts(restart_counts(gt, pr, data[m][0].period))
-                timing[m] = edge_timing(gt, pr, data[m][0].period)
-                s["edge_timing"] = summarize_timing([timing[m]])
-                per_match[m] = s
-                gts.append(g_seq)
-                prs.append(p_seq)
-            gt_all, pr_all = np.concatenate(gts), np.concatenate(prs)
-            pooled = pm.evaluate(pm.label_codes(list(gt_all)), pm.label_codes(list(pr_all)), bootstrap_n=bootstrap_n)
-            ps = _summary(pooled)
-            act = gt_all != "X"
-            ps["pred_d_share"] = float((pr_all[act] == "D").mean())
-            ps["gt_d_share"] = float((gt_all[act] == "D").mean())
-            counts = {field: sum(v["restart_owner"][field] for v in per_match.values())
-                      for field in ("n", "correct", "team_predictions", "pred_d", "pred_x")}
-            ps["restart_owner"] = summarize_restarts(counts)
-            ps["edge_timing"] = summarize_timing([timing[m] for m in dev])
-            report["results"][f"{variant}/{label_set}"] = {"pooled": ps, "per_match": per_match}
+        _score_variant(report, variant, dev, data, preds, label_sets, bootstrap_n)
+    return report
+
+
+def evaluate_holdout(spec, seed=0, bootstrap_n=1000, variants=tuple(VARIANTS), label_sets=LABEL_SETS):
+    """FCB-18 one-time holdout evaluation of a frozen predictor spec (evaluator side).
+
+    For each input variant the predictor is fitted once on all dev matches (primary labels, same
+    variant, exactly as in dev folds) and predicts each holdout match from tracking alone. Holdout
+    references are used only for scoring. The run-once guard and freeze checks live in the
+    pipeline stage that calls this.
+    """
+    split = split_mod.load()
+    dev, holdout = list(split["dev"]), list(split["holdout"])
+    if not holdout or set(dev) & set(holdout):
+        raise ValueError("holdout must be nonempty and disjoint from dev")
+    data = {m: load_match(m, split) for m in dev}
+    held = {m: load_match(m, split, holdout=True) for m in holdout}
+    report = {"split_sha256": split["split_sha256"], "predictor": spec, "seed": seed,
+              "bootstrap_n": bootstrap_n, "results": {}, "train": dev, "holdout": holdout,
+              "provenance": {"split_sha256": split["split_sha256"], "seed": seed,
+                             "variants": {v: VARIANTS[v] for v in variants},
+                             "degrade_defaults": asdict(DegradeConfig()),
+                             "label_sets": list(label_sets), "bootstrap_n": bootstrap_n,
+                             "scorer_sha256": scorer_sha256(),
+                             "labels_sha256": hashlib.sha256((SRC / "evaluation" / "labels.py").read_bytes()).hexdigest(),
+                             "degrade_sha256": hashlib.sha256((SRC / "degrade.py").read_bytes()).hexdigest(),
+                             "inputs": {m: cache_identity(m, _files(m)) for m in dev + holdout}}}
+    for variant in variants:
+        train = [(variant_input(data[m][0], m, variant, seed), gt_labels(data[m][1], data[m][0], "primary"))
+                 for m in dev]
+        predictor = make(spec)
+        predictor.fit(train)
+        preds = {m: np.asarray(predictor.predict(variant_input(held[m][0], m, variant, seed))) for m in holdout}
+        _score_variant(report, variant, holdout, held, preds, label_sets, bootstrap_n)
     return report
 
 

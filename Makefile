@@ -1,12 +1,16 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 CONFIG ?= configs/scaffold.yaml
 
-.PHONY: test dev-eval submission
+.PHONY: test dev-eval holdout-eval submission
 test:
 	@PYTHONDONTWRITEBYTECODE=1 "$(PYTHON)" -m unittest discover -s tests -v
 
 dev-eval:
 	@"$(PYTHON)" scripts/run_experiment.py --config "$(CONFIG)" -- "$(PYTHON)" scripts/pipeline.py dev-eval
+
+# FCB-18: one-time holdout evaluation; refuses unless HEAD is the freeze tag (see holdout_gate.py).
+holdout-eval:
+	@"$(PYTHON)" scripts/run_experiment.py --config configs/holdout.yaml -- "$(PYTHON)" scripts/pipeline.py holdout-eval
 
 # All target execution must enter through this wrapper, including future adapters.
 submission:
