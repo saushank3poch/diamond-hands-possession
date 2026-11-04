@@ -1,6 +1,6 @@
 # Ball possession from automatic tracking: technical document
 
-*More than a Hack 2027, Metrica Sports × FC Barcelona. Team: `<team_name>` (pending). Repository: `<repository-url>` (pending).*
+*More than a Hack 2027, Metrica Sports × FC Barcelona. Team: **diamond hands**. Repository: `<repository-url>` (made public at submission time).*
 
 ## 1. Summary
 
