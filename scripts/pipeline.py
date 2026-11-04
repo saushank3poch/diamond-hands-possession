@@ -6,7 +6,7 @@ dev-eval: score each configured predictor on dev matches (FCB-9) and write
           paired spellF1 differences against an earlier dev_metrics.json.
 holdout-eval: FCB-18 one-time holdout evaluation of the frozen candidate; see
           possession/holdout_gate.py for the preflight checks and the one-shot reservation.
-submission: not implemented yet (FCB-19).
+submission: FCB-19 target CSV with the frozen recipe; target wrapper only (see possession/submission.py).
 """
 
 import argparse
@@ -24,8 +24,28 @@ seed = int(os.environ["POSSESSION_SEED"])
 seed_generators(seed)
 
 if args.stage == "submission":
-    print("submission is not implemented yet; no data was read.", file=sys.stderr)
-    sys.exit(2)
+    # Runs only inside scripts/run_target_local.sh (stdout/stderr discarded; pass/fail only).
+    import signal  # noqa: E402
+    import subprocess  # noqa: E402
+    signal.alarm(600)  # whole pipeline must finish in < 10 min
+    from possession.adapters.atd import load_target  # noqa: E402
+    from possession.evaluation import harness  # noqa: E402
+    from possession import submission  # noqa: E402
+    run_dir = Path(os.environ["POSSESSION_RUN_DIR"])
+    spec, variant, train_seed = submission.recipe()
+    if train_seed != seed:
+        raise SystemExit("run seed differs from the frozen recipe")
+    model, dev = submission.train(spec, variant, train_seed, harness.load_match, harness.variant_input,
+                                  harness.gt_labels)
+    labels = submission.predict_target(model, load_target())
+    out = run_dir / "submission.csv"
+    digest = submission.write_csv(out, labels)
+    check = subprocess.run([sys.executable, "evaluation/validate_submission.py", str(out), "--rows",
+                            str(submission.N_FRAMES)], capture_output=True)
+    (run_dir / "validate.log").write_bytes(check.stdout + check.stderr)
+    (run_dir / "submission.json").write_text(json.dumps(
+        {"sha256": digest, "spec": spec, "variant": variant, "train": dev, "validator_exit": check.returncode}) + "\n")
+    sys.exit(0 if check.returncode == 0 else 3)
 
 from possession.evaluation import harness  # noqa: E402
 

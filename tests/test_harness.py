@@ -137,7 +137,8 @@ print(random.random(), hash('same-input'))
                                     text=True, timeout=20)
             self.assertNotEqual(result.returncode, 0)
             if stage == "submission":
-                self.assertEqual(result.stdout, "TARGET_RUN FAIL exit_code=2\n")
+                # Implemented since FCB-19: without data it fails generically, printing only pass/fail.
+                self.assertRegex(result.stdout, r"^TARGET_RUN FAIL exit_code=[1-9][0-9]*\n$")
                 self.assertNotIn("not implemented", result.stdout + result.stderr)
         self.assertFalse((self.repo / "data").exists())
 

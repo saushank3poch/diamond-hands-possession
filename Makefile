@@ -14,7 +14,7 @@ holdout-eval:
 
 # All target execution must enter through this wrapper, including future adapters.
 submission:
-	@PYTHON="$(PYTHON)" sh scripts/run_target_local.sh "$(CONFIG)" -- "$(PYTHON)" scripts/pipeline.py submission
+	@PYTHON="$(PYTHON)" sh scripts/run_target_local.sh configs/submission.yaml -- "$(PYTHON)" scripts/pipeline.py submission
 
 # Bootstrap does not depend on an existing virtual environment.
 BOOTSTRAP_PYTHON ?= python3.14
