@@ -368,3 +368,12 @@ Primary labels; pooled spellF1 [90% CI, resampling possessions; only 2 matches, 
   - a fresh clone at fade003 with an empty dev cache, so dev sources were re-parsed: the first attempt failed with `FileNotFoundError` because the target data was not placed. With `MTAH_DATA_DIR` set: `TARGET_RUN PASS`, validator exit 0, and a CSV byte-identical to the checkout's.
   - The clone reused the checkout's virtualenv rather than running `make setup`, so it does not test dependency installation.
 - **Process note:** these target runs happened before Codex's review of the runner; the request for a review first arrived while they were running. No target content was inspected, and they were reproducibility checks, not selection. Any change from review will be followed by a rerun.
+
+**Revision after review (`RESEARCH/FCB_19_SUBMISSION_REVIEW_2026_11_04.md`, commit cb2054e):**
+- `submission.build` runs `verify_freeze` and `recipe` before any dev, holdout or target file is opened.
+  - `verify_freeze` requires the manifest, split, lock, `games.py`, every predictor and adapter module (same file set) and the model-input modules to be byte-identical to `freeze-e005`. New runner files may differ.
+  - `recipe` resolves the exact frozen variant string and refuses anything else, including `degraded_long_gaps` and `clean`. It also checks the split hash and the predictor, and returns the frozen dev IDs that `train` must match.
+  - The freeze identity (tag, tag commit, HEAD) is recorded in the local `submission.json`.
+- Refusal tests (manifest selecting `nearest_player`; drift in code, lock or split; an extra predictor file; seed mismatch) show no loader runs.
+- Wording: the wrapper *captures* stdout and stderr in local run files and prints only pass/fail; it does not discard them.
+- **Fresh-environment acceptance (pass/fail and equality only):** a fresh clone at cb2054e with `make setup` from `requirements.lock` (`pip check` clean), the full suite at 183 OK, then a contained `make submission` with `MTAH_DATA_DIR` set gave `TARGET_RUN PASS` with validator exit 0. Its CSV is byte-identical to the checkout's run at cb2054e, which is byte-identical to the earlier fade003 runs.
