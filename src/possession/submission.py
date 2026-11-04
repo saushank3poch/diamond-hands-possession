@@ -63,12 +63,30 @@ def verify_freeze(git=_git, root=ROOT):
 
 
 VARIANTS = {"degraded": "degraded (FCB-8 default DegradeConfig)"}
+ELIGIBILITY = ROOT / "configs" / "eligibility.json"
+FALLBACK_KEY = "fallback_if_degradation_ruled_ineligible"
 
 
-def recipe(manifest=None, split=None):
-    """Resolve the exact frozen recipe; refuse anything that is not literally it."""
+def eligibility(path=None):
+    """Organiser ruling switch. True (default) = frozen degraded recipe; False = prespecified clean
+    fallback from the freeze manifest. Only a literal boolean is accepted."""
+    e = json.loads((path or ELIGIBILITY).read_text())
+    allowed = e.get("degradation_statistics_allowed")
+    if type(allowed) is not bool:
+        raise ValueError("eligibility switch must be a boolean")
+    return allowed
+
+
+def recipe(manifest=None, split=None, degradation_allowed=None):
+    """Resolve the exact frozen recipe; refuse anything that is not literally it.
+
+    With the organiser switch off, resolve the prespecified clean fallback instead: same
+    predictor, matches, labels and seed, clean inputs. The fallback text must be present in the
+    (tag-bound) manifest; it is not chosen from any score.
+    """
     m = manifest or json.loads(MANIFEST.read_text())
     split = split or split_mod.load()
+    allowed = eligibility() if degradation_allowed is None else degradation_allowed
     t = m["target_training"]
     if not t.get("decided_before_holdout") or t["labels"] != "primary" or t["seed"] != 0:
         raise ValueError("unexpected target training recipe")
@@ -81,7 +99,12 @@ def recipe(manifest=None, split=None):
         raise ValueError("predictor is not the frozen E005 candidate")
     if not split["dev"] or set(split["dev"]) & set(split["holdout"]):
         raise ValueError("dev must be nonempty and disjoint from holdout")
-    return m["predictor"], "degraded", t["seed"], list(split["dev"])
+    if allowed:
+        return m["predictor"], "degraded", t["seed"], list(split["dev"])
+    fallback = t.get(FALLBACK_KEY, "")
+    if "clean variant" not in fallback or "same matches, labels, seed" not in fallback:
+        raise ValueError("manifest has no prespecified clean fallback")
+    return m["predictor"], "clean", t["seed"], list(split["dev"])
 
 
 def train(spec, variant, seed, dev, load_match, variant_input, gt_labels):
@@ -132,5 +155,5 @@ def build(run_dir, seed, load_match, variant_input, gt_labels, load_target, vali
     (run_dir / "validate.log").write_bytes(log)
     (run_dir / "submission.json").write_text(json.dumps(
         {"sha256": digest, "spec": spec, "variant": variant, "train": dev, "freeze": freeze,
-         "validator_exit": code}) + "\n")
+         "degradation_statistics_allowed": variant == "degraded", "validator_exit": code}) + "\n")
     return code

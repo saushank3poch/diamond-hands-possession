@@ -1,0 +1,4 @@
+{
+  "degradation_statistics_allowed": true,
+  "note": "Organiser ruling on using published DATA.md input statistics to set FCB-8 degradation rates. true = frozen degraded recipe (default while unanswered); false = prespecified clean fallback in configs/freeze.json. Change only to record the organisers' answer, citing it in findings/experiments.md."
+}

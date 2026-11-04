@@ -44,6 +44,32 @@ class RecipeTests(unittest.TestCase):
                 submission.recipe(m)
 
 
+class EligibilitySwitchTests(unittest.TestCase):
+    def test_default_switch_is_degraded(self):
+        self.assertTrue(submission.eligibility())
+        self.assertEqual(submission.recipe()[1], "degraded")
+
+    def test_switch_off_resolves_prespecified_clean_fallback(self):
+        spec, variant, seed, dev = submission.recipe(degradation_allowed=False)
+        self.assertEqual((spec, variant, seed), ({"name": "short_spell_x", "mode": "carry"}, "clean", 0))
+        self.assertEqual(dev, list(submission.split_mod.load()["dev"]))
+
+    def test_switch_must_be_boolean(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "e.json"
+            for value in ("false", 0, None):
+                p.write_text(_json.dumps({"degradation_statistics_allowed": value}))
+                with self.assertRaises(ValueError):
+                    submission.eligibility(p)
+
+    def test_fallback_requires_prespecified_text(self):
+        m = frozen_manifest()
+        del m["target_training"][submission.FALLBACK_KEY]
+        with self.assertRaises(ValueError):
+            submission.recipe(m, degradation_allowed=False)
+        self.assertEqual(submission.recipe(m, degradation_allowed=True)[1], "degraded")
+
+
 class FreezeBindingTests(unittest.TestCase):
     """verify_freeze against a temporary copy of the repo; the git side is the real freeze tag."""
 
