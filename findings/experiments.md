@@ -380,4 +380,9 @@ Primary labels; pooled spellF1 [90% CI, resampling possessions; only 2 matches, 
 
 ## FCB-20 clean fallback switch (2026-11-04; not run on the target)
 
-`configs/eligibility.json` holds `degradation_statistics_allowed` (literal boolean, default `true`). With `false`, `submission.recipe` resolves the clean fallback prespecified in the tag-bound `configs/freeze.json`: the same predictor, 5 dev matches, primary labels and seed 0, with clean inputs. If the fallback text is missing it refuses. The switch is changed only to record the organisers' answer on the degradation-statistics question, and that answer is cited here when it arrives; it is never chosen from a score. The variant used is recorded in the local `submission.json`. Its only holdout evidence is `clean/primary` in H001, which is on clean inputs, so it is not representative of noisy target tracking. Tests are in `tests/test_submission.py` (`EligibilitySwitchTests`). No target run was done with the switch off.
+`configs/eligibility.json` records the organiser ruling on using published DATA.md statistics for the degradation rates (question sent 2026-11-04) as `pending`, `allowed` or `disallowed`, plus `response_source`. A settled ruling must cite its source; a pending ruling has none.
+- **`pending` is not approval.** It keeps the frozen degraded recipe and is recorded as pending. No answer is not organiser clearance; the submission decision stays with the owner.
+- `allowed` keeps the degraded recipe.
+- `disallowed` selects the clean fallback prespecified in the tag-bound `configs/freeze.json`: the same predictor, 5 dev matches, primary labels and seed 0, with clean inputs. It refuses if the fallback text is missing.
+
+The ruling and its source are recorded in the local `submission.json`, and the eventual answer is cited here. The fallback's only holdout evidence is `clean/primary` in H001, which is on clean inputs and not representative of noisy target tracking. Tests are in `tests/test_submission.py` (`EligibilitySwitchTests`: pending and both rulings, plus invalid values and sources). No target run was done with the fallback.

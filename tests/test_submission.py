@@ -45,29 +45,47 @@ class RecipeTests(unittest.TestCase):
 
 
 class EligibilitySwitchTests(unittest.TestCase):
-    def test_default_switch_is_degraded(self):
-        self.assertTrue(submission.eligibility())
+    def write(self, d, **e):
+        p = Path(d) / "e.json"
+        p.write_text(_json.dumps(e))
+        return p
+
+    def test_committed_ruling_is_pending_and_keeps_degraded(self):
+        self.assertEqual(submission.eligibility(), ("pending", None))
         self.assertEqual(submission.recipe()[1], "degraded")
 
-    def test_switch_off_resolves_prespecified_clean_fallback(self):
-        spec, variant, seed, dev = submission.recipe(degradation_allowed=False)
+    def test_pending_allowed_disallowed(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(submission.eligibility(self.write(d, ruling="pending", response_source=None)),
+                             ("pending", None))
+            self.assertEqual(submission.eligibility(self.write(d, ruling="allowed", response_source="email 2026-11-05")),
+                             ("allowed", "email 2026-11-05"))
+            self.assertEqual(submission.eligibility(self.write(d, ruling="disallowed", response_source="email")),
+                             ("disallowed", "email"))
+        self.assertEqual(submission.recipe(ruling="pending")[1], "degraded")
+        self.assertEqual(submission.recipe(ruling="allowed")[1], "degraded")
+        spec, variant, seed, dev = submission.recipe(ruling="disallowed")
         self.assertEqual((spec, variant, seed), ({"name": "short_spell_x", "mode": "carry"}, "clean", 0))
         self.assertEqual(dev, list(submission.split_mod.load()["dev"]))
 
-    def test_switch_must_be_boolean(self):
+    def test_invalid_rulings_and_sources_refused(self):
         with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "e.json"
-            for value in ("false", 0, None):
-                p.write_text(_json.dumps({"degradation_statistics_allowed": value}))
-                with self.assertRaises(ValueError):
-                    submission.eligibility(p)
+            for e in ({"ruling": True, "response_source": None}, {"ruling": "yes", "response_source": None},
+                      {"ruling": "pending", "response_source": "email"},
+                      {"ruling": "allowed", "response_source": None}, {"ruling": "disallowed", "response_source": " "},
+                      {"degradation_statistics_allowed": True}):
+                with self.subTest(e=e), self.assertRaises(ValueError):
+                    submission.eligibility(self.write(d, **e))
+        for bad in (True, False, 0, 1, "Pending", ""):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                submission.recipe(ruling=bad)
 
     def test_fallback_requires_prespecified_text(self):
         m = frozen_manifest()
         del m["target_training"][submission.FALLBACK_KEY]
         with self.assertRaises(ValueError):
-            submission.recipe(m, degradation_allowed=False)
-        self.assertEqual(submission.recipe(m, degradation_allowed=True)[1], "degraded")
+            submission.recipe(m, ruling="disallowed")
+        self.assertEqual(submission.recipe(m, ruling="pending")[1], "degraded")
 
 
 class FreezeBindingTests(unittest.TestCase):

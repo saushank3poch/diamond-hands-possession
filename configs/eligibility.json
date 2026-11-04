@@ -1,4 +1,5 @@
 {
-  "degradation_statistics_allowed": true,
-  "note": "Organiser ruling on using published DATA.md input statistics to set FCB-8 degradation rates. true = frozen degraded recipe (default while unanswered); false = prespecified clean fallback in configs/freeze.json. Change only to record the organisers' answer, citing it in findings/experiments.md."
+  "ruling": "pending",
+  "response_source": null,
+  "note": "Organiser ruling on using published DATA.md input statistics to set FCB-8 degradation rates (question sent 2026-11-04). pending = not answered; NOT approval; the frozen degraded recipe is kept and recorded as pending. allowed = frozen degraded recipe. disallowed = prespecified clean fallback in configs/freeze.json. A settled ruling must set response_source (e.g. the organisers' email date and subject) and be cited in findings/experiments.md."
 }

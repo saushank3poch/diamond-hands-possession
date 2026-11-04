@@ -67,26 +67,41 @@ ELIGIBILITY = ROOT / "configs" / "eligibility.json"
 FALLBACK_KEY = "fallback_if_degradation_ruled_ineligible"
 
 
+RULINGS = ("pending", "allowed", "disallowed")
+
+
 def eligibility(path=None):
-    """Organiser ruling switch. True (default) = frozen degraded recipe; False = prespecified clean
-    fallback from the freeze manifest. Only a literal boolean is accepted."""
+    """Organiser ruling on using published DATA.md statistics for the degradation rates.
+
+    Returns (ruling, response_source). `pending` is NOT approval: it keeps the frozen degraded
+    recipe while unanswered and is recorded as pending. `disallowed` selects the prespecified
+    clean fallback. A settled ruling must cite its response source.
+    """
     e = json.loads((path or ELIGIBILITY).read_text())
-    allowed = e.get("degradation_statistics_allowed")
-    if type(allowed) is not bool:
-        raise ValueError("eligibility switch must be a boolean")
-    return allowed
+    ruling, source = e.get("ruling"), e.get("response_source")
+    if ruling not in RULINGS:
+        raise ValueError("ruling must be pending, allowed or disallowed")
+    if ruling == "pending" and source is not None:
+        raise ValueError("a pending ruling has no response source")
+    if ruling != "pending" and (type(source) is not str or not source.strip()):
+        raise ValueError("a settled ruling must cite its response source")
+    return ruling, source
 
 
-def recipe(manifest=None, split=None, degradation_allowed=None):
+def recipe(manifest=None, split=None, ruling=None):
     """Resolve the exact frozen recipe; refuse anything that is not literally it.
 
-    With the organiser switch off, resolve the prespecified clean fallback instead: same
-    predictor, matches, labels and seed, clean inputs. The fallback text must be present in the
-    (tag-bound) manifest; it is not chosen from any score.
+    Ruling `pending` or `allowed` -> frozen degraded recipe. Ruling `disallowed` -> the clean
+    fallback prespecified in the (tag-bound) manifest: same predictor, matches, labels and seed,
+    clean inputs. Never chosen from a score.
     """
     m = manifest or json.loads(MANIFEST.read_text())
     split = split or split_mod.load()
-    allowed = eligibility() if degradation_allowed is None else degradation_allowed
+    if ruling is None:
+        ruling = eligibility()[0]
+    if ruling not in RULINGS:
+        raise ValueError("ruling must be pending, allowed or disallowed")
+    allowed = ruling != "disallowed"
     t = m["target_training"]
     if not t.get("decided_before_holdout") or t["labels"] != "primary" or t["seed"] != 0:
         raise ValueError("unexpected target training recipe")
@@ -144,7 +159,8 @@ def build(run_dir, seed, load_match, variant_input, gt_labels, load_target, vali
     """
     run_dir = Path(run_dir)
     freeze = verify_freeze()
-    spec, variant, train_seed, dev = recipe()
+    ruling, source = eligibility()
+    spec, variant, train_seed, dev = recipe(ruling=ruling)
     if train_seed != seed:
         raise ValueError("run seed differs from the frozen recipe")
     model, dev = train(spec, variant, train_seed, dev, load_match, variant_input, gt_labels)
@@ -155,5 +171,5 @@ def build(run_dir, seed, load_match, variant_input, gt_labels, load_target, vali
     (run_dir / "validate.log").write_bytes(log)
     (run_dir / "submission.json").write_text(json.dumps(
         {"sha256": digest, "spec": spec, "variant": variant, "train": dev, "freeze": freeze,
-         "degradation_statistics_allowed": variant == "degraded", "validator_exit": code}) + "\n")
+         "degradation_ruling": ruling, "ruling_response_source": source, "validator_exit": code}) + "\n")
     return code
