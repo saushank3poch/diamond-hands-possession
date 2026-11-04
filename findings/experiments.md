@@ -313,3 +313,16 @@ The E005 reference reproduced its earlier metrics exactly. The offset re-centres
 **Correction (review `RESEARCH/FCB_E006_REVIEW_2026_11_04.md`, commit ed52396, run `run-111gha3c`):** the audit and `EdgeOffset._fit_offsets` now extract edges, fill prediction X and pair edges only inside contiguous reference-valid blocks: one active period, no GT-X. Predicted edges in unknown regions are ignored, and no pair crosses a GT-X gap. Regressions are in `tests/test_edge_timing.py` (both reviewer probes and the per-block X fill) and `tests/test_edge_offset.py` (unknown regions in training references). `predict()` never receives these boundaries.
 
 **Affected reports:** I reran `configs/dev_edge_offset.yaml` at ed52396. Every report and paired result is identical to the committed `E006_dev_metrics.json`, including the proxy label sets. The rerun's `e005_reference` results are identical to the committed A006 audit results. The A006 and E006 numbers above therefore stand unchanged; the rerun record is `findings/results/E006_rerun_run.json`.
+
+## FCB-18 pre-freeze (2026-11-04): holdout runner, not yet opened
+
+- **Freeze manifest:** `configs/freeze.json`. It records the predictor spec (`short_spell_x`, `mode: carry`, all other values default), the `requirements.lock` hash, and every component marked as either *included and evaluated in dev CV* or *explicitly excluded*. The tag `freeze-e005` will be set on the reviewed commit; the manifest names the tag rather than its own hash.
+- **Runner:** `make holdout-eval` → `scripts/pipeline.py holdout-eval` → `harness.evaluate_holdout`. For each input variant, it fits once on all 5 dev matches (primary labels, same variant, as in the dev folds) and predicts each holdout match from tracking alone. Holdout references are used only for scoring. It uses the same scoring code as dev (`_score_variant`, extracted from `evaluate`).
+- **Gate** (`src/possession/holdout_gate.py`), checked before any holdout file is read:
+  - HEAD equals the freeze tag's commit;
+  - the worktree is clean;
+  - the config predictor equals the manifest's;
+  - no holdout result exists yet.
+  An ignored `runs/holdout/OPENED` marker and the committed `findings/results/HOLDOUT_metrics.json` both block a rerun. `load_match` refuses holdout matches unless called with `holdout=True`, and refuses dev matches on that path.
+- **Refactor check:** `configs/dev_xpolicy.yaml` was rerun at be5297f (run `run-lp1vfqnm`). Every E005 report and paired result is identical to the committed `E005_dev_metrics.json`. The comparison excludes `edge_timing`, a field added after E005.
+- Tests: `tests/test_holdout.py` uses a spy predictor and a fake git, with no holdout data. 165 tests OK.
