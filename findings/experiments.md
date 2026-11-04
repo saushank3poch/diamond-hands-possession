@@ -358,3 +358,13 @@ Primary labels; pooled spellF1 [90% CI, resampling possessions; only 2 matches, 
 - Possessions are undercounted more on holdout (74% of true) than on dev (88%). This is the clearest remaining weakness: real short possessions are being merged.
 - The D share is close to truth.
 - Target (Barça–Athletic) performance remains unmeasured. The organiser eligibility question on the degradation statistics is still open.
+
+## FCB-19: target submission runner (2026-11-04; commit fade003)
+
+- **Command:** `make submission`, which runs `scripts/run_target_local.sh configs/submission.yaml -- pipeline.py submission`. It trains exactly the frozen `target_training` recipe from `configs/freeze.json`: the 5 dev matches, primary labels, the default degraded variant, seed 0. It then predicts the Barça–Athletic match from tracking alone, writes `runs/target/<run>/submission.csv` with X outside the published halves, and runs `evaluation/validate_submission.py --rows 199319` on that exact file. Validator output stays in the contained run directory, and the wrapper prints only pass/fail. There is a 600 s alarm.
+- **Data placement for a clean clone:** the match files are not distributed with the repo. Place them under `data/` or set `MTAH_DATA_DIR` (see `games.py`). The DFL dev data is expected at `../external/idsse`.
+- **Results (pass/fail only; no target output or diagnostic was read):**
+  - two runs in the checkout: `TARGET_RUN PASS`, validator exit 0 in both, byte-identical CSVs (sha256 equal);
+  - a fresh clone at fade003 with an empty dev cache, so dev sources were re-parsed: the first attempt failed with `FileNotFoundError` because the target data was not placed. With `MTAH_DATA_DIR` set: `TARGET_RUN PASS`, validator exit 0, and a CSV byte-identical to the checkout's.
+  - The clone reused the checkout's virtualenv rather than running `make setup`, so it does not test dependency installation.
+- **Process note:** these target runs happened before Codex's review of the runner; the request for a review first arrived while they were running. No target content was inspected, and they were reproducibility checks, not selection. Any change from review will be followed by a rerun.
