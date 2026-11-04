@@ -1,4 +1,5 @@
 """FCB-18: holdout gating and run-once guard (synthetic only; no holdout data is read)."""
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -17,13 +18,25 @@ from possession.evaluation import harness
 from test_harness_eval import Spy, toy_refs, toy_tracking
 
 SPEC = {"name": "short_spell_x", "mode": "carry"}
+LOCK = b"lock-bytes\n"
+CFG = json.dumps({"seed": 0, "bootstrap_n": 1000}).encode()
 
 
-def fake_git(head="abc", tag="abc", status=""):
+def manifest_bytes(**over):
+    m = {"tag": "freeze-x", "predictor": SPEC, "split_sha256": "S",
+         "requirements_lock_sha256": hashlib.sha256(LOCK).hexdigest(),
+         "holdout_run": {"seed": 0, "bootstrap_n": 1000}}
+    m.update(over)
+    return json.dumps(m).encode()
+
+
+def fake_git(head="abc", tag="abc", status=b"", blobs=None):
     def git(*args):
-        if args[:1] == ("status",):
+        if args[0] == "status":
             return status
-        return head if args[1] == "HEAD" else tag
+        if args[0] == "show":
+            return blobs[args[1].split(":", 1)[1]]
+        return (head if args[1] == "HEAD" else tag).encode()
     return git
 
 
@@ -31,46 +44,100 @@ class GateTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         t = Path(self.tmp.name)
-        self.manifest = t / "freeze.json"
-        self.manifest.write_text(json.dumps({"tag": "freeze-x", "predictor": SPEC}))
+        (t / "configs").mkdir()
+        self.man = manifest_bytes()
+        (t / holdout_gate.MANIFEST).write_bytes(self.man)
+        (t / holdout_gate.CONFIG).write_bytes(CFG)
+        (t / "requirements.lock").write_bytes(LOCK)
+        self.blobs = {holdout_gate.MANIFEST: self.man, holdout_gate.CONFIG: CFG}
         self.patches = [patch.object(holdout_gate, "ROOT", t),
-                        patch.object(holdout_gate, "MARKER", t / "runs" / "holdout" / "OPENED"),
+                        patch.object(holdout_gate, "MARKER", t / "runs" / "holdout" / "RESERVATION.json"),
                         patch.object(holdout_gate, "RESULT", t / "findings" / "HOLDOUT_metrics.json")]
         for p in self.patches:
             p.start()
-        self.cfg = {"freeze": "freeze.json"}
+        self.root = t
 
     def tearDown(self):
         for p in self.patches:
             p.stop()
         self.tmp.cleanup()
 
-    def test_passes_at_clean_tag(self):
-        spec, freeze = holdout_gate.check_gate(self.cfg, git=fake_git())
+    def gate(self, cfg=CFG, seed=0, split="S", **git):
+        return holdout_gate.check_gate(cfg, seed, split, git=fake_git(blobs=self.blobs, **git))
+
+    def assertRefused(self, **kw):
+        with self.assertRaises(SystemExit):
+            self.gate(**kw)
+
+    def test_passes_when_everything_matches(self):
+        spec, freeze = self.gate()
         self.assertEqual((spec, freeze["commit"], freeze["tag"]), (SPEC, "abc", "freeze-x"))
 
-    def test_refuses_off_tag_dirty_or_mismatched(self):
-        for git in (fake_git(head="abc", tag="def"), fake_git(status=" M x.py")):
-            with self.assertRaises(SystemExit):
-                holdout_gate.check_gate(self.cfg, git=git)
-        with self.assertRaises(SystemExit):
-            holdout_gate.check_gate({**self.cfg, "predictor": {"name": "deadball"}}, git=fake_git())
-        with self.assertRaises(SystemExit):
-            holdout_gate.check_gate({**self.cfg, "predictors": [SPEC]}, git=fake_git())
-        with self.assertRaises(SystemExit):
-            holdout_gate.check_gate({}, git=fake_git())
+    def test_refuses_off_tag_or_dirty(self):
+        self.assertRefused(tag="def")
+        self.assertRefused(status=b" M x.py")
 
-    def test_runs_only_once(self):
-        holdout_gate.check_gate(self.cfg, git=fake_git())
-        holdout_gate.record_opened(Path("run"))
+    def test_refuses_manifest_not_matching_tag_blob(self):
+        # Reviewer probe: a manifest naming the expected tag but selecting another predictor.
+        (self.root / holdout_gate.MANIFEST).write_bytes(manifest_bytes(predictor={"name": "nearest_player"}))
+        self.assertRefused()
+
+    def test_refuses_altered_or_extended_run_config(self):
+        self.assertRefused(cfg=json.dumps({"seed": 1, "bootstrap_n": 1000}).encode())
+        bad = json.dumps({"seed": 0, "bootstrap_n": 1000, "freeze": "/tmp/x.json"}).encode()
+        self.blobs[holdout_gate.CONFIG] = bad
+        (self.root / holdout_gate.CONFIG).write_bytes(bad)
+        self.assertRefused(cfg=bad)
+
+    def test_refuses_env_seed_lock_or_split_mismatch(self):
+        self.assertRefused(seed=7)
+        self.assertRefused(split="other")
+        (self.root / "requirements.lock").write_bytes(b"changed\n")
+        self.assertRefused()
+
+    def test_refuses_wrong_lock_hash_in_manifest(self):
+        m = manifest_bytes(requirements_lock_sha256="0" * 64)
+        self.blobs[holdout_gate.MANIFEST] = m
+        (self.root / holdout_gate.MANIFEST).write_bytes(m)
+        self.assertRefused()
+
+    def test_gate_failure_never_reserves_or_evaluates(self):
+        calls = []
         with self.assertRaises(SystemExit):
-            holdout_gate.check_gate(self.cfg, git=fake_git())
+            holdout_gate.run_once(CFG, 7, "S", Path("r"), lambda s, n: calls.append(1), lambda r: None,
+                                  git=fake_git(blobs=self.blobs))
+        self.assertEqual(calls, [])
+        self.assertFalse(holdout_gate.MARKER.exists())
+
+    def test_success_records_completed_and_blocks_rerun(self):
+        rep = holdout_gate.run_once(CFG, 0, "S", Path("r"), lambda s, n: {"spec": s}, lambda r: None,
+                                    git=fake_git(blobs=self.blobs))
+        self.assertEqual(rep["spec"], SPEC)
+        self.assertEqual(json.loads(holdout_gate.MARKER.read_text())["status"], "completed")
+        self.assertRefused()
+
+    def test_failure_after_read_records_failed_and_blocks_retry(self):
+        def boom(spec, n):
+            raise RuntimeError("crash after reading holdout")
+        with self.assertRaises(RuntimeError):
+            holdout_gate.run_once(CFG, 0, "S", Path("r"), boom, lambda r: None, git=fake_git(blobs=self.blobs))
+        rec = json.loads(holdout_gate.MARKER.read_text())
+        self.assertEqual((rec["status"], rec["error_type"]), ("failed", "RuntimeError"))
+        self.assertNotIn("crash", holdout_gate.MARKER.read_text())
+        self.assertRefused()
+
+    def test_competing_reservations_only_one_wins(self):
+        self.gate()
+        self.gate()  # two preflights may both pass ...
+        holdout_gate.reserve(Path("a"))
+        with self.assertRaises(SystemExit):  # ... but only one reservation succeeds
+            holdout_gate.reserve(Path("b"))
+        self.assertEqual(json.loads(holdout_gate.MARKER.read_text())["run_dir"], "a")
 
     def test_committed_result_also_blocks(self):
         holdout_gate.RESULT.parent.mkdir(parents=True)
         holdout_gate.RESULT.write_text("{}")
-        with self.assertRaises(SystemExit):
-            holdout_gate.check_gate(self.cfg, git=fake_git())
+        self.assertRefused()
 
 
 class LoadGateTests(unittest.TestCase):

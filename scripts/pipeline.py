@@ -4,9 +4,8 @@
 dev-eval: score each configured predictor on dev matches (FCB-9) and write
           $POSSESSION_RUN_DIR/dev_metrics.json. Optional "compare_to" adds per-match
           paired spellF1 differences against an earlier dev_metrics.json.
-holdout-eval: FCB-18 one-time holdout evaluation of the frozen candidate. Refuses unless HEAD is
-          exactly the freeze tag named in the config's freeze manifest, the worktree is clean,
-          the predictor equals the manifest's, and no holdout result exists yet.
+holdout-eval: FCB-18 one-time holdout evaluation of the frozen candidate; see
+          possession/holdout_gate.py for the preflight checks and the one-shot reservation.
 submission: not implemented yet (FCB-19).
 """
 
@@ -34,12 +33,12 @@ run_dir = Path(os.environ["POSSESSION_RUN_DIR"])
 config = json.loads((run_dir / "config.yaml").read_text())
 
 if args.stage == "holdout-eval":
-    from possession.holdout_gate import check_gate, record_opened  # noqa: E402
-    spec, freeze = check_gate(config)
-    report = harness.evaluate_holdout(spec, seed=seed, bootstrap_n=config.get("bootstrap_n", 1000))
-    report["freeze"] = freeze
-    harness.write({"seed": seed, "reports": {"frozen": report}}, run_dir / "holdout_metrics.json")
-    record_opened(run_dir)
+    from possession import holdout_gate, split as split_mod  # noqa: E402
+    holdout_gate.run_once(
+        (run_dir / "config.yaml").read_bytes(), seed, split_mod.load()["split_sha256"], run_dir,
+        evaluate=lambda spec, n: harness.evaluate_holdout(spec, seed=seed, bootstrap_n=n),
+        write=lambda rep: harness.write({"seed": seed, "reports": {"frozen": rep}},
+                                        run_dir / "holdout_metrics.json"))
     print("HOLDOUT_EVAL wrote", run_dir / "holdout_metrics.json")
     sys.exit(0)
 out = {"seed": seed, "reports": {}}

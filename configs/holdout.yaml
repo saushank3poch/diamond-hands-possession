@@ -1,5 +1,4 @@
 {
   "seed": 0,
-  "bootstrap_n": 1000,
-  "freeze": "configs/freeze.json"
+  "bootstrap_n": 1000
 }

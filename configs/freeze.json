@@ -1,9 +1,11 @@
 {
   "tag": "freeze-e005",
   "selected": "E005 short_spell_carry",
-  "predictor": {"name": "short_spell_x", "mode": "carry"},
+  "predictor": {
+    "name": "short_spell_x",
+    "mode": "carry"
+  },
   "requirements_lock_sha256": "db73686896c3bc78cad69dca9cab1728f7203a40284297f6df21d98ae02c9fa5",
-  "split_sha256_file": "configs/split.yaml",
   "dev_evidence": "findings/results/E005_dev_metrics.json (report short_spell_carry)",
   "components": {
     "included_evaluated_in_dev_cv": [
@@ -24,5 +26,22 @@
   },
   "open_questions": [
     "Organiser eligibility of using published DATA.md input statistics to set FCB-8 degradation rates (unresolved)"
-  ]
+  ],
+  "split_sha256": "e80729dc59678fbe26c3d636eef9bc99da7ad840fdbfc6397f3bce361399a26b",
+  "holdout_run": {
+    "seed": 0,
+    "bootstrap_n": 1000,
+    "config": "configs/holdout.yaml",
+    "reports": "one fitted model per input variant (clean, degraded, degraded_short_gaps, degraded_long_gaps), each trained on all 5 dev matches with primary labels and evaluated on both holdout matches; these four are prespecified robustness checks, not a choice among recipes"
+  },
+  "target_training": {
+    "decided_before_holdout": true,
+    "training_matches": "the 5 dev matches in configs/split.yaml (dev list) only; the 2 holdout matches are never used for fitting, before or after opening",
+    "labels": "primary",
+    "input_variant": "degraded (FCB-8 default DegradeConfig), per-match seed match_seed(0, match_id), exactly as in dev CV",
+    "seed": 0,
+    "predictor": "same as 'predictor' above",
+    "holdout_report_for_submission": "degraded/primary is the headline holdout number for the submitted model; the other three are robustness checks",
+    "fallback_if_degradation_ruled_ineligible": "if the organisers rule that published DATA.md statistics may not set the FCB-8 rates, train on the clean variant instead (same matches, labels, seed); its holdout report is clean/primary. This fallback is fixed now and not chosen from holdout scores."
+  }
 }

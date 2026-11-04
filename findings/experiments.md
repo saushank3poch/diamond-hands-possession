@@ -316,13 +316,25 @@ The E005 reference reproduced its earlier metrics exactly. The offset re-centres
 
 ## FCB-18 pre-freeze (2026-11-04): holdout runner, not yet opened
 
-- **Freeze manifest:** `configs/freeze.json`. It records the predictor spec (`short_spell_x`, `mode: carry`, all other values default), the `requirements.lock` hash, and every component marked as either *included and evaluated in dev CV* or *explicitly excluded*. The tag `freeze-e005` will be set on the reviewed commit; the manifest names the tag rather than its own hash.
-- **Runner:** `make holdout-eval` → `scripts/pipeline.py holdout-eval` → `harness.evaluate_holdout`. For each input variant, it fits once on all 5 dev matches (primary labels, same variant, as in the dev folds) and predicts each holdout match from tracking alone. Holdout references are used only for scoring. It uses the same scoring code as dev (`_score_variant`, extracted from `evaluate`).
-- **Gate** (`src/possession/holdout_gate.py`), checked before any holdout file is read:
-  - HEAD equals the freeze tag's commit;
-  - the worktree is clean;
-  - the config predictor equals the manifest's;
-  - no holdout result exists yet.
-  An ignored `runs/holdout/OPENED` marker and the committed `findings/results/HOLDOUT_metrics.json` both block a rerun. `load_match` refuses holdout matches unless called with `holdout=True`, and refuses dev matches on that path.
-- **Refactor check:** `configs/dev_xpolicy.yaml` was rerun at be5297f (run `run-lp1vfqnm`). Every E005 report and paired result is identical to the committed `E005_dev_metrics.json`. The comparison excludes `edge_timing`, a field added after E005.
-- Tests: `tests/test_holdout.py` uses a spy predictor and a fake git, with no holdout data. 165 tests OK.
+- **Freeze manifest:** `configs/freeze.json`, tracked. It holds:
+  - the predictor (`short_spell_x`, `mode: carry`, defaults otherwise);
+  - the `requirements.lock` hash and the split hash;
+  - the holdout run settings (seed 0, bootstrap 1000);
+  - every component, marked as either *included and evaluated in dev CV* or *explicitly excluded*;
+  - **the target training recipe, fixed before opening:** the 5 dev matches only (the holdout is never used for fitting), primary labels, the default degraded variant with the dev-CV per-match seeds, and seed 0. Its headline holdout number is `degraded/primary`. If the organisers rule the published-statistics degradation ineligible, the prespecified fallback is the clean variant, reported as `clean/primary`.
+
+  The tag `freeze-e005` goes on the reviewed commit.
+- **Runner:** `make holdout-eval` → `scripts/pipeline.py holdout-eval` → `holdout_gate.run_once` → `harness.evaluate_holdout`. For each of the four input variants, it fits once on all 5 dev matches (primary labels, same variant) and predicts each holdout match from tracking alone. Holdout references are used only for scoring, through the same `_score_variant` code as dev. The four reports are prespecified robustness checks; the submission recipe above is not chosen from them.
+- **Preflight** (`src/possession/holdout_gate.py`), all checked before any holdout read:
+  - only the fixed tracked paths are accepted. The run config must be byte-identical to `configs/holdout.yaml` and may set only `seed` and `bootstrap_n`. Both files must equal their blobs at the tag;
+  - HEAD must equal the tag's commit, and the worktree must be clean;
+  - the lock and split hashes, and the effective seed (config and environment) and bootstrap count, must match the manifest.
+- **One shot:** an atomic `O_CREAT|O_EXCL` reservation (`runs/holdout/RESERVATION.json`, status `started`) is written after preflight and before any holdout access. It is then updated to `failed` (exception type only) or `completed`. Any existing reservation, or a committed `findings/results/HOLDOUT_metrics.json`, refuses every later attempt; there is no automatic retry. `load_match` refuses holdout matches unless called with `holdout=True`, and refuses dev matches on that path.
+- **Refactor check:** `configs/dev_xpolicy.yaml` was rerun at be5297f. Every E005 report and paired result is identical to the committed `E005_dev_metrics.json`. The comparison excludes `edge_timing`, a field added after E005.
+- **Tests:** `tests/test_holdout.py` uses a spy predictor, a fake git and temporary markers, with no holdout data. It covers:
+  - reviewer probes: a manifest selecting another predictor, a wrong lock hash, an altered seed or extra config keys;
+  - a gate failure, which never reserves or evaluates;
+  - a failure after a mocked read, which records `failed` and blocks a retry;
+  - competing reservations, where one wins.
+
+  172 tests OK.
