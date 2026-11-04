@@ -1,6 +1,6 @@
 # Ball possession from automatic tracking: technical document
 
-*More than a Hack 2027, Metrica Sports × FC Barcelona. Team: **diamond hands**. Repository: `<repository-url>` (made public at submission time).*
+*More than a Hack 2027, Metrica Sports × FC Barcelona. Team: **diamond hands**. Repository: https://github.com/saushank3poch/diamond-hands-possession (private until submission).*
 
 ## 1. Summary
 
@@ -96,7 +96,7 @@ The calibration targets are only the input statistics published in `DATA.md`. Ga
 Requirements: Python 3.14, the competition data bundle, and the IDSSE files.
 
 ```bash
-git clone <repository-url> more-than-a-hack-2027 && cd more-than-a-hack-2027
+git clone https://github.com/saushank3poch/diamond-hands-possession.git && cd diamond-hands-possession
 make setup                                    # venv from requirements.lock, then pip check
 make test                                     # synthetic tests only
 # Data: put the competition bundle in ./data (or export MTAH_DATA_DIR=/path/to/bundle),
