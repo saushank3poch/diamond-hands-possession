@@ -55,6 +55,27 @@ class EdgeTimingTests(unittest.TestCase):
         s = summarize_timing([edge_timing(gt, pr, np.ones(300, int))] * 2)
         self.assertEqual((s["release"]["matched"], s["release"]["median"], s["release"]["share_late"]), (2, 10.0, 1.0))
 
+    def test_predicted_edges_in_unknown_reference_are_ignored(self):
+        # Reviewer probe: truth HHXXXXHH, prediction HHDDHHHH -> no spurious edges.
+        t = edge_timing(arr("HHXXXXHH"), arr("HHDDHHHH"), np.ones(8, int))
+        for k in ("stop", "release"):
+            self.assertEqual((t[k]["n_pred"], t[k]["unmatched_pred"], t[k]["n_ref"]), (0, 0, 0))
+
+    def test_no_pairing_across_reference_gap(self):
+        # Reviewer probe: truth DDHHXXHHHH, prediction DDDDDDDHHH -> ref release 2 unmatched.
+        t = edge_timing(arr("DDHHXXHHHH"), arr("DDDDDDDHHH"), np.ones(10, int))
+        self.assertEqual(t["release"]["latencies"], [])
+        self.assertEqual((t["release"]["n_ref"], t["release"]["unmatched_ref"]), (1, 1))
+        # Predicted release at 7 lies inside the second known block (truth H there): spurious there.
+        self.assertEqual((t["release"]["n_pred"], t["release"]["unmatched_pred"]), (1, 1))
+
+    def test_x_filling_restarts_inside_each_block(self):
+        # Prediction X at the head of the second known block must not inherit across the gap.
+        gt = arr("DDDD" + "XX" + "HHHH")
+        pr = arr("DDDD" + "DD" + "XHHH")
+        t = edge_timing(gt, pr, np.ones(10, int))
+        self.assertEqual((t["release"]["n_pred"], t["release"]["n_ref"]), (0, 0))
+
 
 if __name__ == "__main__":
     unittest.main()

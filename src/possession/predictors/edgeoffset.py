@@ -81,15 +81,21 @@ class EdgeOffset(ShortSpellX):
             for a, b, dead in self._dead_blocks(tracking):
                 g = codes[a:b]
                 ok = np.isin(g, ["H", "A", "D"])
-                g_dead = g == "D"
-                ge = np.flatnonzero(np.diff(g_dead.astype(np.int8)) != 0) + 1
-                ge = ge[ok[ge - 1] & ok[ge]]
-                pe = np.flatnonzero(np.diff(dead.astype(np.int8)) != 0) + 1
-                stops_r += (offset + ge[g_dead[ge]]).tolist()
-                rel_r += (offset + ge[~g_dead[ge]]).tolist()
-                stops_p += (offset + pe[dead[pe]]).tolist()
-                rel_p += (offset + pe[~dead[pe]]).tolist()
-                offset += (b - a) + 10 * WINDOW  # keep blocks and matches apart
+                # Pair only inside contiguous reference-known sub-blocks of this period
+                # (training references only; never used by predict()).
+                cut = np.r_[True, ok[1:] != ok[:-1]]
+                starts = np.flatnonzero(cut)
+                for s0, s1 in zip(starts, np.r_[starts[1:], len(g)]):
+                    if not ok[s0]:
+                        continue
+                    gd, pd = g[s0:s1] == "D", dead[s0:s1]
+                    ge = np.flatnonzero(np.diff(gd.astype(np.int8)) != 0) + 1
+                    pe = np.flatnonzero(np.diff(pd.astype(np.int8)) != 0) + 1
+                    stops_r += (offset + ge[gd[ge]]).tolist()
+                    rel_r += (offset + ge[~gd[ge]]).tolist()
+                    stops_p += (offset + pe[pd[pe]]).tolist()
+                    rel_p += (offset + pe[~pd[pe]]).tolist()
+                    offset += (s1 - s0) + 10 * WINDOW  # keep sub-blocks and matches apart
         self.stop_shift = _median_offset(stops_r, sorted(stops_p))
         self.release_shift = _median_offset(rel_r, sorted(rel_p))
         return self

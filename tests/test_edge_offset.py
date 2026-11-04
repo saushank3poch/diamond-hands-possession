@@ -71,6 +71,20 @@ class EdgeOffsetModelTests(unittest.TestCase):
         self.assertTrue((pred[b + 250:b + 900] == "D").all())  # period-2 run: start -50, end +500
         self.assertTrue((pred[b + 900:] != "D").all())
 
+    def test_fit_offsets_ignore_unknown_reference_regions(self):
+        tr, codes = synthetic()
+        model = EdgeOffset(min_dead_s=1.0, min_live_s=1.0).fit([(tr, codes)])
+        base = (model.stop_shift, model.release_shift)
+        # Blank every reference edge neighbourhood: nothing pairs, so offsets fall back to 0.
+        blanked = codes.copy()
+        edges = np.flatnonzero(codes[1:] != codes[:-1]) + 1
+        for e in edges:
+            blanked[max(0, e - 100):e + 100] = "X"
+        model._fit_offsets([(tr, blanked)])
+        self.assertEqual((model.stop_shift, model.release_shift), (0, 0))
+        model._fit_offsets([(tr, codes)])
+        self.assertEqual((model.stop_shift, model.release_shift), base)
+
     def test_zero_offsets_reproduce_e005(self):
         tr, codes = synthetic()
         e005 = ShortSpellX(mode="carry", min_dead_s=1.0, min_live_s=1.0).fit([(tr, codes)])

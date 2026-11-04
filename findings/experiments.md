@@ -306,6 +306,6 @@ Primary labels, pooled over the 5 dev matches:
 
 The E005 reference reproduced its earlier metrics exactly. The offset re-centres matched medians to 0 and lifts the restart ±8-frame share, but stoppage shares barely move.
 
-**Verdict: rejected; E005 remains selected.** Degraded is negative, and no scenario has a majority of matches positive. All intervals overlap.
+**Verdict: rejected; E005 remains selected.** The all-scenario criterion fails: degraded is negative (1/5 positive), and only clean has a majority of matches positive (3/5). All intervals overlap.
 
 **Interpretation (not tested further):** re-centring the median leaves the wide spread untouched (p10/p90 roughly ±20–40 frames), and that spread, together with missed and spurious edges, dominates. A constant shift changes IoU very little on multi-second spells. No further offsets or windows were searched.

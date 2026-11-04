@@ -33,27 +33,31 @@ def summarize(counts):
 EDGE_WINDOW = 75  # +/-3 s at 25 fps, fixed a priori; pairs farther apart count as unmatched
 
 
-def _alive(codes, period):
-    """Alive mask with X carried from the previous label inside each period (scorer-like)."""
-    codes = np.asarray(codes).copy()
-    for p in np.unique(period[period > 0]):
-        idx = np.flatnonzero(period == p)
-        seg = codes[idx]
-        known = seg != "X"
-        if known.any():
-            carry = np.maximum.accumulate(np.where(known, np.arange(len(seg)), -1))
-            carry[carry < 0] = np.flatnonzero(known)[0]
-            codes[idx] = seg[carry]
-    return np.isin(codes, ["H", "A"])
+def valid_blocks(gt, period):
+    """Contiguous [start, stop) spans within one active period where the reference is known."""
+    ok = (np.asarray(period) > 0) & (np.asarray(gt) != "X")
+    cut = np.r_[True, (period[1:] != period[:-1]) | (ok[1:] != ok[:-1])]
+    starts = np.flatnonzero(cut)
+    stops = np.r_[starts[1:], len(gt)]
+    return [(int(a), int(b)) for a, b in zip(starts, stops) if ok[a]]
 
 
-def _edges(alive, period, kind):
-    same = (period[1:] > 0) & (period[1:] == period[:-1])
+def _block_edges(alive, a, kind):
     if kind == "release":   # dead -> live
         e = ~alive[:-1] & alive[1:]
     else:                   # live -> dead
         e = alive[:-1] & ~alive[1:]
-    return np.flatnonzero(e & same) + 1
+    return (np.flatnonzero(e) + 1 + a).tolist()
+
+
+def _carry_x(seg):
+    """Forward-fill X inside one block, back-filling its head (scorer-like)."""
+    known = seg != "X"
+    if not known.any():
+        return seg
+    carry = np.maximum.accumulate(np.where(known, np.arange(len(seg)), -1))
+    carry[carry < 0] = np.flatnonzero(known)[0]
+    return seg[carry]
 
 
 def match_edges(ref, pred, period, window=EDGE_WINDOW):
@@ -81,19 +85,26 @@ def match_edges(ref, pred, period, window=EDGE_WINDOW):
 def edge_timing(gt, pred, period, window=EDGE_WINDOW):
     """Release (D->live) and stop (live->D) edge audit against the reference.
 
-    Reference edges exclude GT-X gaps and period boundaries; reference X frames are treated as
-    not alive only for edge detection, and edges touching a GT-X frame are dropped.
+    Everything happens inside contiguous reference-valid blocks (one active period, no GT-X):
+    prediction X is carried within the block, edges are extracted within the block (so no edge
+    touches an unknown reference frame), and pairs never cross a block. Predicted edges in
+    unknown regions are ignored, not counted as spurious.
     """
     gt, pred, period = np.asarray(gt), np.asarray(pred), np.asarray(period)
-    out = {}
-    ok = (gt[:-1] != "X") & (gt[1:] != "X")
-    g_alive, p_alive = np.isin(gt, ["H", "A"]), _alive(pred, period)
-    for kind in ("release", "stop"):
-        ref = _edges(g_alive, period, kind)
-        ref = ref[ok[ref - 1]]
-        prd = _edges(p_alive, period, kind)
-        out[kind] = match_edges(ref.tolist(), prd.tolist(), period, window)
-    return out
+    parts = {k: {"n_ref": 0, "n_pred": 0, "latencies": [], "unmatched_ref": 0, "unmatched_pred": 0}
+             for k in ("release", "stop")}
+    for a, b in valid_blocks(gt, period):
+        g_alive = np.isin(gt[a:b], ["H", "A"])
+        p_alive = np.isin(_carry_x(pred[a:b].copy()), ["H", "A"])
+        blk = np.ones(b - a + 1, int)  # single pseudo-period: pairs stay inside the block
+        for kind in parts:
+            r = _block_edges(g_alive, 0, kind)
+            q = _block_edges(p_alive, 0, kind)
+            m = match_edges(r, q, blk, window)
+            for f in ("n_ref", "n_pred", "unmatched_ref", "unmatched_pred"):
+                parts[kind][f] += m[f]
+            parts[kind]["latencies"] += m["latencies"]
+    return parts
 
 
 def summarize_timing(parts):
