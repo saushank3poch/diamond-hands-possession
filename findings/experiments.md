@@ -261,3 +261,51 @@ D share is unchanged in every scenario (dead mask untouched). The X and carry va
 **Caveats:**
 - Possessions are now undercounted (1838 vs 2094 on degraded), where E002 overcounted (2578). Real short possessions are being merged; a different threshold could trade this off, but none was searched.
 - Dev only. Target transfer is unproven; the threshold was not chosen on any target data.
+
+## A006: Dead-edge timing audit of E005 (evaluator only, 2026-11-04; commit 18d94ba, run `run-bj7a8dky`)
+
+`possession.evaluation.restarts.edge_timing` pairs predicted and reference dead-run edges one-to-one (same period, |offset| ≤ 75 frames = 3 s, fixed a priori, greedy by smallest offset). It reports signed latency (predicted − reference) for matched pairs, plus missed and spurious counts. It is evaluation-only; predictors never see it.
+
+Primary labels, pooled over the 5 dev matches:
+
+| scenario | edge | ref / pred / matched | missed / spurious | median | p10 / p90 | share \|lat\| ≤ 8 |
+|---|---|---|---|---|---|---|
+| clean | restart (D→live) | 487 / 500 / 460 | 27 / 40 | −3 | −21 / 0 | 0.70 |
+| clean | stoppage (live→D) | 495 / 509 / 460 | 35 / 49 | 0 | −7 / +31 | 0.70 |
+| degraded | restart | 487 / 507 / 432 | 55 / 75 | −5 | −27 / +17 | 0.46 |
+| degraded | stoppage | 495 / 517 / 420 | 75 / 97 | +3 | −16 / +38 | 0.43 |
+| short gaps | restart | 487 / 510 / 442 | 45 / 68 | −3 | −24 / +21 | 0.42 |
+| short gaps | stoppage | 495 / 519 / 442 | 53 / 77 | +2 | −17 / +33 | 0.48 |
+| long gaps | restart | 487 / 521 / 424 | 63 / 97 | −5 | −30 / +10 | 0.53 |
+| long gaps | stoppage | 495 / 530 / 411 | 84 / 119 | +3 | −16 / +39 | 0.41 |
+
+**Reading (scoped per review):**
+- *Matched* restarts have an early median and matched stoppages a slightly late one. The ±3 s pairing excludes missed and spurious edges, and the spread includes many late releases.
+- Similar total edge counts do not show that the right events were found. The missed and spurious counts above are the evidence.
+- The ±8-frame share is descriptive only. spellF1 has no frame cutoff: it matches whole possessions by temporal IoU at thresholds 0.3–0.7.
+- This supersedes the earlier "releases late" reading of the E004 restart counts, which was withdrawn.
+
+## E006: Training-only median dead-edge offset (prespecified, 2026-11-04; commit 97451eb, run `run-a32u9rtq`)
+
+**Hypothesis (posted before the run):** shifting E005's dead-run edges by the median signed latency estimated in-sample on the training matches raises primary dev spellF1 over E005 `short_spell_carry` in all 4 scenarios, with a positive mean paired difference and a majority of matches positive. Single variant.
+
+**Change:** `src/possession/predictors/edgeoffset.py` (`EdgeOffset`); `configs/dev_edge_offset.yaml`. The edge cases were prespecified and tested synthetically in `tests/test_edge_offset.py`:
+- no paired edges → offset 0;
+- period boundaries are kept, and nothing moves across a period;
+- overlapping runs merge;
+- runs whose shifted interval is empty are dropped.
+
+**Results** (pooled spellF1 [90% CI]; Δ = mean paired per-match difference vs E005, matches positive):
+
+| scenario | E005 | E006 | Δ | restart median / ≤8 share: E005 → E006 |
+|---|---|---|---|---|
+| clean | .4657 [.448, .483] | .4664 [.449, .484] | +.0009 (3/5) | −3 / .70 → 0 / .77 |
+| degraded | .3893 [.373, .406] | .3878 [.372, .404] | −.0015 (1/5) | −5 / .46 → 0 / .53 |
+| short gaps | .4053 [.389, .421] | .4061 [.389, .422] | +.0009 (2/5) | −3 / .42 → 0 / .46 |
+| long gaps | .3725 [.357, .388] | .3726 [.357, .388] | +.0001 (1/5) | −5 / .53 → 0 / .60 |
+
+The E005 reference reproduced its earlier metrics exactly. The offset re-centres matched medians to 0 and lifts the restart ±8-frame share, but stoppage shares barely move.
+
+**Verdict: rejected; E005 remains selected.** Degraded is negative, and no scenario has a majority of matches positive. All intervals overlap.
+
+**Interpretation (not tested further):** re-centring the median leaves the wide spread untouched (p10/p90 roughly ±20–40 frames), and that spread, together with missed and spurious edges, dominates. A constant shift changes IoU very little on multi-second spells. No further offsets or windows were searched.

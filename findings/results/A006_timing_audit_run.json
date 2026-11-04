@@ -1,0 +1,14 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "scripts/pipeline.py",
+    "dev-eval"
+  ],
+  "config_sha256": "1b946238ac5ec27535c6cd5c751c6e6c48bf3b8059ed6c15246eb3d6218236fa",
+  "git_commit": "18d94bac32336018e7180500836201d989ad9bf3",
+  "lock_sha256": "db73686896c3bc78cad69dca9cab1728f7203a40284297f6df21d98ae02c9fa5",
+  "mode": "dev",
+  "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "seed": 0,
+  "worktree_dirty": false
+}
