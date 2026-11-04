@@ -309,3 +309,7 @@ The E005 reference reproduced its earlier metrics exactly. The offset re-centres
 **Verdict: rejected; E005 remains selected.** The all-scenario criterion fails: degraded is negative (1/5 positive), and only clean has a majority of matches positive (3/5). All intervals overlap.
 
 **Interpretation (not tested further):** re-centring the median leaves the wide spread untouched (p10/p90 roughly ±20–40 frames), and that spread, together with missed and spurious edges, dominates. A constant shift changes IoU very little on multi-second spells. No further offsets or windows were searched.
+
+**Correction (review `RESEARCH/FCB_E006_REVIEW_2026_11_04.md`, commit ed52396, run `run-111gha3c`):** the audit and `EdgeOffset._fit_offsets` now extract edges, fill prediction X and pair edges only inside contiguous reference-valid blocks: one active period, no GT-X. Predicted edges in unknown regions are ignored, and no pair crosses a GT-X gap. Regressions are in `tests/test_edge_timing.py` (both reviewer probes and the per-block X fill) and `tests/test_edge_offset.py` (unknown regions in training references). `predict()` never receives these boundaries.
+
+**Affected reports:** I reran `configs/dev_edge_offset.yaml` at ed52396. Every report and paired result is identical to the committed `E006_dev_metrics.json`, including the proxy label sets. The rerun's `e005_reference` results are identical to the committed A006 audit results. The A006 and E006 numbers above therefore stand unchanged; the rerun record is `findings/results/E006_rerun_run.json`.
