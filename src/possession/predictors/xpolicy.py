@@ -1,10 +1,14 @@
 """FCB-14 short-spell abstention on top of E002 DeadBall (prespecified, E005).
 
 Inside each decoded live run, any owner spell shorter than `min_spell_s` that is not the run's
-first spell is treated as unreliable. With `mode="x"` it is written as X (abstain); with
-`mode="carry"` it is overwritten with the owner carried into it. The official scorer fills X
-forward, so both modes give the same spellF1; they differ only on frame metrics (macroF1, the
-first tie-breaker). D still comes only from the dead mask. The 1 s default equals E002's
+first spell, and that disagrees with the owner carried into it, is treated as unreliable. (A
+short spell that already agrees with the carried owner stays explicit.) With `mode="x"` it is
+written as X (abstain); with `mode="carry"` it is overwritten with the carried owner.
+
+The scorer fills X forward, but its fill restarts at every reference-X gap, while the predictor's
+carry does not. So the two modes give the same spellF1 only when no reference-X gap falls between
+a suppressed spell and the owner it would carry; otherwise they can differ. Reference masks never
+enter prediction. D still comes only from the dead mask. The 1 s default equals E002's
 minimum live-run length and is fixed a priori, not tuned.
 """
 import numpy as np

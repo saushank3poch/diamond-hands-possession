@@ -88,7 +88,16 @@ class SuppressShortSpellTests(unittest.TestCase):
         # H, short A (suppressed), short H (agrees with carried H: keep it).
         self.assertEqual(self.run_("HHHHAHHHHH"[:6] + "AAAA", 2), "HHHHXHAAAA")
 
-    def test_x_and_carry_give_identical_spell_f1(self):
+    def test_x_and_carry_differ_across_reference_x_gap(self):
+        # Reviewer probe: scorer fill restarts at reference-X gaps, predictor carry does not.
+        original = "HHHAAHHH"
+        x, carry = self.run_(original, 3, "x"), self.run_(original, 3, "carry")
+        self.assertEqual((x, carry), ("HHHXXHHH", "HHHHHHHH"))
+        truth = "XXXHHXXX"
+        self.assertEqual(ev(truth, x)["spell_f1_mean"], 0.0)
+        self.assertEqual(ev(truth, carry)["spell_f1_mean"], 1.0)
+
+    def test_x_and_carry_equal_spell_f1_without_reference_x(self):
         rng = np.random.default_rng(5)
         gt = "".join(rng.choice(list("HA"), 1) [0] * int(rng.integers(5, 60)) for _ in range(80))
         pred = "".join(rng.choice(list("HA"), 1)[0] * int(rng.integers(1, 40)) for _ in range(150))[: len(gt)]

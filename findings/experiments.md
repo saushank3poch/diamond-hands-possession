@@ -239,7 +239,7 @@ Regression cases for both directions are in `tests/test_x_policy.py`. The correc
 
 ## E005: Short-spell suppression inside live runs, FCB-14 (prespecified, 2026-11-04; commit 4230757, run `run-vura5btv`)
 
-**Hypothesis (posted before the run):** inside each decoded live run of E002 `DeadBall`, any owner spell shorter than 1 s that is not the run's first spell becomes X. This raises primary dev spellF1 over E002 `deadball_all` in all 4 scenarios, with positive mean paired per-match differences and a majority of matches positive. The 1 s equals E002's minimum live length and was fixed a priori. No other threshold was run. A `carry` variant writes the carried owner instead of X. By construction it has identical spellF1, so it isolates the macroF1 effect.
+**Hypothesis (posted before the run):** inside each decoded live run of E002 `DeadBall`, any owner spell shorter than 1 s that is not the run's first spell becomes X. *As implemented,* a short spell that already agrees with the carried owner stays explicit; only disagreeing short spells are replaced. This affects the X variant's frame metrics, not the carry output. This raises primary dev spellF1 over E002 `deadball_all` in all 4 scenarios, with positive mean paired per-match differences and a majority of matches positive. The 1 s equals E002's minimum live length and was fixed a priori. No other threshold was run. A `carry` variant writes the carried owner instead of X. It isolates the macroF1 effect where both variants score the same spellF1. That equality is not universal: the scorer's fill restarts at reference-X gaps while the predictor's carry does not, so the two can differ (regression `test_x_and_carry_differ_across_reference_x_gap`: truth `XXXHHXXX`, X variant scores 0, carry 1).
 
 **Change:** `src/possession/predictors/xpolicy.py` (`ShortSpellX`, via the E002 `owner_run` hook); `configs/dev_xpolicy.yaml`. D, the dead mask and training are unchanged.
 
@@ -252,11 +252,11 @@ Regression cases for both directions are in `tests/test_x_policy.py`. The correc
 | short gaps | .358 [.344, .371] | **.405** [.389, .421] | +.048 (5/5) | 2423 → 1746 / 2094 | .8386 / .8388 / .8399 | 10.64 → 10.16 |
 | long gaps | .324 [.311, .338] | **.373** [.357, .388] | +.049 (5/5) | 2437 → 1764 / 2094 | .8155 / .8159 / .8170 | 10.50 → 10.11 |
 
-D share is unchanged in every scenario (dead mask untouched). The X and carry variants have exactly equal spellF1 everywhere, as required.
+D share is unchanged in every scenario (dead mask untouched). The X and carry variants have equal spellF1 in every reported per-match and pooled result here. This is observed on these dev scenarios, not guaranteed in general (see the hypothesis note).
 
 **Verdict: hypothesis confirmed.** All four scenarios have positive mean paired differences with 5/5 matches positive. The pooled intervals do not overlap E002's in any scenario.
 
-**Variant choice:** carry has higher macroF1 than X in all four scenarios (+0.0009 to +0.0017), with identical spellF1. On dev, short spells are more often the right owner than not, so abstaining on them costs true positives. Proposed selection: **`short_spell_carry`** as the new baseline (E005), on the first tie-breaker. The macroF1 differences are small and have no interval; they decide only the tie-break.
+**Variant choice:** carry has higher macroF1 than X in all four scenarios (+0.0009 to +0.0017), with identical spellF1. Proposed selection: **`short_spell_carry`** as the new baseline (E005), on the first tie-breaker. The macroF1 differences are small and have no interval; they decide only the tie-break.
 
 **Caveats:**
 - Possessions are now undercounted (1838 vs 2094 on degraded), where E002 overcounted (2578). Real short possessions are being merged; a different threshold could trade this off, but none was searched.
