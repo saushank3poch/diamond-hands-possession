@@ -386,3 +386,9 @@ Primary labels; pooled spellF1 [90% CI, resampling possessions; only 2 matches, 
 - `disallowed` selects the clean fallback prespecified in the tag-bound `configs/freeze.json`: the same predictor, 5 dev matches, primary labels and seed 0, with clean inputs. It refuses if the fallback text is missing.
 
 The ruling and its source are recorded in the local `submission.json`, and the eventual answer is cited here. The fallback's only holdout evidence is `clean/primary` in H001, which is on clean inputs and not representative of noisy target tracking. Tests are in `tests/test_submission.py` (`EligibilitySwitchTests`: pending and both rulings, plus invalid values and sources). No target run was done with the fallback.
+
+## Submission (2026-11-15)
+
+- **Eligibility ruling:** the organisers had not answered the 2026-11-04 question by 2026-11-15 (owner confirmation in the team channel). `configs/eligibility.json` stays `pending`. As prespecified in FCB-20, pending keeps the frozen degraded recipe; no answer is not organiser clearance, and the decision to submit was the owner's.
+- **Repository made public** on owner instruction, after checking the full history: no file under `data/` other than upstream's `data/README.md`, every committed CSV is an upstream file, no blob over 2 MB, and no key-like strings.
+- The submitted CSV is the `make submission` output at the commit recorded in its local `submission.json`. Validator pass/fail only; no target content was read.
